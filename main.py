@@ -27,6 +27,9 @@ TOKEN_EXPIRY = 604800  # 1 week
 app = FastAPI()
 id_generator = SnowflakeGenerator(0)
 
+@app.post("/api/ping")
+def ping():
+    return "Pong!"
 
 class LoginRequest(BaseModel):
     email: str
