@@ -27,9 +27,11 @@ TOKEN_EXPIRY = 604800  # 1 week
 app = FastAPI()
 id_generator = SnowflakeGenerator(0)
 
+
 @app.post("/api/ping")
 def ping():
     return "Pong!"
+
 
 class LoginRequest(BaseModel):
     email: str
@@ -194,7 +196,6 @@ def airports(
     name: str | None = None,
     lat: float | None = None,
     long: float | None = None,
-    user: AuthorizedUser = Depends(get_authorized_user),
 ) -> ListAirportsResponse:
     if name:
         airports = find_airports_by_name(name)
