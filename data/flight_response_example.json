@@ -21,30 +21,26 @@
       "legs": [
         {
           "id": "13554-2302070705--31901-1-11442-2302071325",
-          "origin": [
-            {
-              "id": 13554,
-              "entity_id": 95565050,
-              "alt_id": "LHR",
-              "parent_id": 4698,
-              "parent_entity_id": 27544008,
-              "name": "London Heathrow",
-              "type": "Airport",
-              "display_code": "LHR"
-            }
-          ],
-          "destination": [
-            {
-              "id": 11442,
-              "entity_id": 95565059,
-              "alt_id": "EWR",
-              "parent_id": 5772,
-              "parent_entity_id": 27537542,
-              "name": "New York Newark",
-              "type": "Airport",
-              "display_code": "EWR"
-            }
-          ],
+          "origin": {
+            "id": 13554,
+            "entity_id": 95565050,
+            "alt_id": "LHR",
+            "parent_id": 4698,
+            "parent_entity_id": 27544008,
+            "name": "London Heathrow",
+            "type": "Airport",
+            "display_code": "LHR"
+          },
+          "destination": {
+            "id": 11442,
+            "entity_id": 95565059,
+            "alt_id": "EWR",
+            "parent_id": 5772,
+            "parent_entity_id": 27537542,
+            "name": "New York Newark",
+            "type": "Airport",
+            "display_code": "EWR"
+          },
           "departure": "2023-02-07T07:05:00",
           "arrival": "2023-02-07T13:25:00",
           "duration": 680,
@@ -57,20 +53,20 @@
               "display_code_type": "IATA",
               "alliance": -31999
             }
+          ],
+          "stop_count": 1,
+          "stops": [
+            {
+              "id": 15093,
+              "entity_id": 128667763,
+              "alt_id": "OSL",
+              "parent_id": 5973,
+              "parent_entity_id": 27538634,
+              "name": "Oslo Gardermoen",
+              "type": "Airport",
+              "display_code": "OSL"
+            }
           ]
-        }
-      ],
-      "stop_count": 1,
-      "stops": [
-        {
-          "id": 15093,
-          "entity_id": 128667763,
-          "alt_id": "OSL",
-          "parent_id": 5973,
-          "parent_entity_id": 27538634,
-          "name": "Oslo Gardermoen",
-          "type": "Airport",
-          "display_code": "OSL"
         }
       ]
     }

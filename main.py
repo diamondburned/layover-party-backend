@@ -25,7 +25,9 @@ MIN_WAIT = 500
 TOKEN_EXPIRY = 604800  # 1 week
 
 
-app = FastAPI(docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json")
+app = FastAPI(
+    docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json"
+)
 id_generator = SnowflakeGenerator(0)
 
 
@@ -147,15 +149,33 @@ def get_flights(
         "market": "en-US",
     }
 
-    # print(json.dumps(query_string))
-
     headers = {
         "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
         "X-RapidAPI-Host": host,
     }
 
     res = request("GET", url, headers=headers, params=query_string)
-    return FlightResponse.parse_raw(res.text)
+
+    parsed_res = FlightResponse.parse_raw(res.text)
+
+    if parsed_res is None or parsed_res.data is None:
+        return parsed_res
+
+    to_delete = []
+
+    for flight in parsed_res.data:
+        if flight.legs is None:
+            to_delete.append(flight)
+            continue
+
+        for leg in flight.legs:
+            if leg.stops is None or len(leg.stops) == 0:
+                to_delete.append(flight)
+
+    for flight in to_delete:
+        parsed_res.data.remove(flight)
+
+    return parsed_res
 
 
 @app.get("/api/airports")

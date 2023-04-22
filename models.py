@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel
 
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -24,6 +25,7 @@ class MeResponse(BaseModel):
     first_name: str
     profile_picture: str | None
 
+
 class Airport(BaseModel):
     iata: str
     name: str
@@ -32,6 +34,7 @@ class Airport(BaseModel):
     country: str
     lat: float
     long: float
+
 
 class ListAirportsResponse(BaseModel):
     airports: list[Airport]
@@ -48,13 +51,13 @@ class Carrier(BaseModel):
 
 class Stop(BaseModel):
     id: int | None
-    entityid: int | None
-    altid: str | None
-    parentid: int | None
-    parententityid: int | None
+    entity_id: int | None
+    alt_id: str | None
+    parent_id: int | None
+    parent_entity_id: int | None
     name: str | None
     type: str | None
-    displaycode: str | None
+    display_code: str | None
 
 
 class Leg(BaseModel):
@@ -65,6 +68,7 @@ class Leg(BaseModel):
     arrival: datetime
     duration: int | None
     carriers: list[Carrier] | None
+    stops: list[Stop] | None
 
 
 class Price(BaseModel):
@@ -86,8 +90,6 @@ class Flight(BaseModel):
     score: float | None
     transfertype: str | None
     legs: list[Leg] | None
-    stopcount: int | None
-    stops: list[Stop] | None
 
 
 class FlightResponse(BaseModel):
@@ -103,6 +105,10 @@ if __name__ == "__main__":
 
     fr = FlightResponse.parse_raw(js)
 
-    print(fr)
-
     assert fr.message is not None
+    assert fr.data is not None
+    assert fr.data[0].legs is not None
+    assert fr.data[0].legs[0].stops is not None
+    assert len(fr.data[0].legs[0].stops) > 0
+
+    print("Bueno ✊🍆💦")
