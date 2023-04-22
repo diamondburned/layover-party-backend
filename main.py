@@ -165,13 +165,13 @@ def get_flights(
     url = "https:// " + host + "/api/v1/searchFlightsMultiStops"
 
     query_string = {
-        "legs": [
+        "legs": json.dumps([
             {
                 "origin": origin,
                 "destination": dest,
                 "date": date,
             }
-        ],
+        ]),
         "waitTime": min(wait_time, 1500) if wait_time is not None else 500,
         "adults": num_adults,
         "currency": "USD",
@@ -179,12 +179,14 @@ def get_flights(
         "market": "en-US",
     }
 
+    # print(json.dumps(query_string))
+
     headers = {
         "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
         "X-RapidAPI-Host": host,
     }
 
-    res = request("GET", url, headers=headers, params=json.dumps(query_string))
+    res = request("GET", url, headers=headers, params=query_string)
 
     parsed_res = FlightResponse(**res.json())
 
