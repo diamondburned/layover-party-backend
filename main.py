@@ -10,6 +10,8 @@ import bcrypt
 import time
 from fastapi import FastAPI
 from requests import request
+from dotenv import load_dotenv
+load_dotenv()
 
 TOKEN_EXPIRY = 604800  # 1 week
 
@@ -121,7 +123,8 @@ class FlightsRequest(BaseModel):
 
 @app.get("/api/flights")
 def get_flights(flight_params: FlightsRequest):
-    url = "https://skyscanner50.p.rapidapi.com/api/v1/searchFlightsMultiStops"
+    host = "skyscanner50.p.rapidapi.com"
+    url = "https:// " + host + "/api/v1/searchFlightsMultiStops"
 
     query_string = {
         "legs": [
@@ -131,7 +134,7 @@ def get_flights(flight_params: FlightsRequest):
                 "date": flight_params.date,
             }
         ],
-        "waitTime":"5000",
+        "waitTime": 5000,
         "adults": flight_params.num_adults,
         "currency": "USD",
         "countryCode": "US",
@@ -139,8 +142,8 @@ def get_flights(flight_params: FlightsRequest):
     }
 
     headers = {
-            "X-RapidAPI-Key": "c5978eb967msh9fd3dbb2f236aa8p182983jsn9fd1bc432eb3",
-            "X-RapidAPI-Host": "skyscanner50.p.rapidapi.com"
+            "X-RapidAPI-Key": os.getenv('API_KEY')
+            "X-RapidAPI-Host": host,
             }
 
     res = request("GET", url, headers=headers, params=json.dumps(query_string))
