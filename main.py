@@ -12,7 +12,6 @@ from snowflake import SnowflakeGenerator
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
-    Airport,
 )
 
 from db import db

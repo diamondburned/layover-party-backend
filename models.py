@@ -1,6 +1,5 @@
 from datetime import datetime
 from pydantic import BaseModel
-from airports import Airport
 
 class LoginRequest(BaseModel):
     email: str
@@ -25,6 +24,14 @@ class MeResponse(BaseModel):
     first_name: str
     profile_picture: str | None
 
+class Airport(BaseModel):
+    iata: str
+    name: str
+    city: str
+    state: str | None
+    country: str
+    lat: float
+    long: float
 
 class ListAirportsResponse(BaseModel):
     airports: list[Airport]

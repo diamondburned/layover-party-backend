@@ -4,6 +4,7 @@ import requests
 import tempfile
 import sqlite3
 from pydantic import BaseModel, parse_obj_as
+from models import Airport
 
 
 AIRPORTS_JSON = "https://gist.githubusercontent.com/tdreyno/4278655/raw/7b0762c09b519f40397e4c3e100b097d861f5588/airports.json"
@@ -84,16 +85,6 @@ def __init_db() -> sqlite3.Connection:
 
     db.commit()
     return db
-
-
-class Airport(BaseModel):
-    iata: str
-    name: str
-    city: str
-    state: str | None
-    country: str
-    lat: float
-    long: float
 
 
 db = __init_db()
