@@ -86,7 +86,7 @@ def login(request: LoginRequest) -> LoginResponse:
     )
 
 
-@app.post("/api/register")
+@app.post("/api/register", status_code=204)
 def register(request: RegisterRequest):
     id = str(next(id_generator))
     passhash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
