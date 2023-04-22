@@ -214,9 +214,9 @@ def get_flights(
 
 @app.get("/api/airports")
 def airports(
-    name: str | None = None,
-    lat: float | None = None,
-    long: float | None = None,
+    name: str = Query(None, description="airport name (must not have lat or long)"),
+    lat: float = Query(None, description="latitude (must also have long)"),
+    long: float = Query(None, description="longitude (must also have lat)"),
 ) -> ListAirportsResponse:
     if name:
         airports = find_airports_by_name(name)
