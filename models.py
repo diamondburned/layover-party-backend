@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
+from airports import Airport
 
 class LoginRequest(BaseModel):
     email: str
