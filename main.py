@@ -146,23 +146,16 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
     return MeResponse(**row)
 
 
-class FlightsRequest(BaseModel):
-    date: str
-    origin: str
-    destination: str
-    num_adults: int
-
-
 @app.get("/api/flights")
 def get_flights(
     date: str = Query(description="date of flight in YYYYMMDD format"),
     origin: str = Query(description="3-letter airport code (IATA)"),
     dest: str = Query(description="3-letter airport code (IATA)"),
-    num_adults: int = Query(description="number of adults"),
+    num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
 ) -> FlightResponse:
     host = "skyscanner50.p.rapidapi.com"
-    url = "https:// " + host + "/api/v1/searchFlightsMultiStops"
+    url = "https://" + host + "/api/v1/searchFlightsMultiStops"
 
     query_string = {
         "legs": json.dumps([
