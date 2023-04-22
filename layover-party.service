@@ -1,0 +1,15 @@
+[Unit]
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/sh /home/ubuntu/layover-party-backend/run.sh
+WorkingDirectory=/home/ubuntu/layover-party-backend/
+
+User=ubuntu
+Group=ubuntu
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
