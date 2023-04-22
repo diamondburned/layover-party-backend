@@ -15,3 +15,13 @@ CREATE TABLE IF NOT EXISTS sessions (
 	user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	expiration INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS flight_responses (
+	date TEXT NOT NULL,
+	origin TEXT NOT NULL,
+	destination TEXT NOT NULL,
+	timestamp INTEGER NOT NULL,
+	response TEXT NOT NULL,
+
+	UNIQUE (date, origin, destination)
+);

@@ -128,54 +128,88 @@ def get_flights(
     dest: str = Query(description="3-letter airport code (IATA)"),
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
+    # page: int = Query(1, description="page number"),
 ) -> FlightResponse:
-    host = "skyscanner50.p.rapidapi.com"
-    url = "https://" + host + "/api/v1/searchFlightsMultiStops"
+    # TODO: implement eviction for old cached flights
+    PAGE_SIZE = 50
+    resp: FlightResponse
 
-    query_string = {
-        "legs": json.dumps(
-            [
-                {
-                    "origin": origin,
-                    "destination": dest,
-                    "date": date,
-                }
-            ]
-        ),
-        "waitTime": min(wait_time, MAX_WAIT) if wait_time is not None else MIN_WAIT,
-        "adults": num_adults,
-        "currency": "USD",
-        "countryCode": "US",
-        "market": "en-US",
-    }
+    cur = db.cursor()
+    res = cur.execute(
+        "SELECT response FROM flight_responses WHERE date = ? AND origin = ? AND destination = ?",
+        (date, origin, dest),
+    )
 
-    headers = {
-        "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
-        "X-RapidAPI-Host": host,
-    }
+    row = res.fetchone()
+    if row is not None:
+        resp = FlightResponse.parse_raw(row[0])
+    else:
+        host = "skyscanner50.p.rapidapi.com"
+        url = "https://" + host + "/api/v1/searchFlightsMultiStops"
 
-    res = request("GET", url, headers=headers, params=query_string)
+        query_string = {
+            "legs": json.dumps(
+                [
+                    {
+                        "origin": origin,
+                        "destination": dest,
+                        "date": date,
+                    }
+                ]
+            ),
+            "waitTime": min(wait_time, MAX_WAIT) if wait_time is not None else MIN_WAIT,
+            "adults": num_adults,
+            "currency": "USD",
+            "countryCode": "US",
+            "market": "en-US",
+        }
 
-    parsed_res = FlightResponse.parse_raw(res.text)
+        headers = {
+            "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
+            "X-RapidAPI-Host": host,
+        }
 
-    if parsed_res is None or parsed_res.data is None:
-        return parsed_res
+        res = request("GET", url, headers=headers, params=query_string)
 
-    to_delete = []
+        parsed_res = FlightResponse.parse_raw(res.text)
 
-    for flight in parsed_res.data:
-        if flight.legs is None:
-            to_delete.append(flight)
-            continue
+        if parsed_res is None or parsed_res.data is None:
+            return parsed_res
 
-        for leg in flight.legs:
-            if leg.stops is None or len(leg.stops) == 0:
+        to_delete = []
+
+        for flight in parsed_res.data:
+            if flight.legs is None:
                 to_delete.append(flight)
+                continue
 
-    for flight in to_delete:
-        parsed_res.data.remove(flight)
+            for leg in flight.legs:
+                if leg.stops is None or len(leg.stops) == 0:
+                    to_delete.append(flight)
 
-    return parsed_res
+        for flight in to_delete:
+            parsed_res.data.remove(flight)
+
+        resp = parsed_res
+
+        cur.execute(
+            "INSERT INTO flight_responses (date, origin, destination, timestamp, response) VALUES (?, ?, ?, ?)",
+            (
+                date,
+                origin,
+                dest,
+                resp.timestamp or int(time.time() * 1000),
+                resp.json(),
+            ),
+        )
+        db.commit()
+
+    # if resp.data is not None:
+    #     start = (page - 1) * PAGE_SIZE
+    #     end = start + PAGE_SIZE
+    #     resp.data = resp.data[start:end]
+
+    return resp
 
 
 @app.get("/api/airports")
