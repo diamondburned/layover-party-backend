@@ -154,7 +154,7 @@ def get_flights(flight_params: FlightsRequest):
     }
 
     headers = {
-        "X-RapidAPI-Key": os.getenv("API_KEY"),
+        "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
         "X-RapidAPI-Host": host,
     }
 
