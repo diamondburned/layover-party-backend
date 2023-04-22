@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
 	email TEXT PRIMARY KEY,
 	passhash TEXT NOT NULL,
   first_name TEXT NOT NULL,
-	profile_picture TEXT,
+	profile_picture TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
