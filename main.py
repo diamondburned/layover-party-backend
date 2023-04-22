@@ -40,7 +40,7 @@ def ping():
 def login(request: LoginRequest) -> LoginResponse:
     cur = db.cursor()
     res = cur.execute(
-        "SELECT id, passhash FROM users WHERE email = ?", (request.email,)
+        "SELECT id, first_name, profile_picture, passhash FROM users WHERE email = ?", (request.email,)
     )
 
     row = res.fetchone()
@@ -61,6 +61,8 @@ def login(request: LoginRequest) -> LoginResponse:
 
     return LoginResponse(
         id=row[0],
+        first_name=row[1],
+        profile_picture=row[2],
         token=token,
         expiry=expire,
     )
@@ -129,6 +131,7 @@ def get_flights(
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
     # page: int = Query(1, description="page number"),
+    # TODO: Round trip 
 ) -> FlightResponse:
     # TODO: implement eviction for old cached flights
     PAGE_SIZE = 50
