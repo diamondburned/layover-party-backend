@@ -30,7 +30,7 @@ id_generator = SnowflakeGenerator(0)
 
 @app.post("/api/ping")
 def ping():
-    return "Pong!"
+    return "Pong!!!"
 
 
 class LoginRequest(BaseModel):
