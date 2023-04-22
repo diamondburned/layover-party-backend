@@ -23,7 +23,7 @@ load_dotenv()
 TOKEN_EXPIRY = 604800  # 1 week
 
 
-app = FastAPI()
+app = FastAPI(docs_url="/api/docs", redoc_url="/api/redoc")
 id_generator = SnowflakeGenerator(0)
 
 
