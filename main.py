@@ -4,9 +4,8 @@ import base64
 import bcrypt
 import time
 
-from dotenv import load_dotenv, main
+from dotenv import load_dotenv
 from requests import request
-from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from snowflake import SnowflakeGenerator
 
@@ -17,7 +16,7 @@ from airports import (
 )
 
 from db import db
-from models import FlightResponse
+from models import *
 
 load_dotenv()
 
@@ -31,34 +30,6 @@ id_generator = SnowflakeGenerator(0)
 @app.get("/api/ping")
 def ping():
     return "Pong!!!"
-
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    id: str
-    token: str
-    expiry: int
-
-
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    first_name: str
-
-
-class MeResponse(BaseModel):
-    id: str
-    email: str
-    first_name: str
-    profile_picture: str | None
-
-
-class ListAirportsResponse(BaseModel):
-    airports: list[Airport]
 
 
 @app.post("/api/login")
@@ -167,7 +138,7 @@ def get_flights(
                 }
             ]
         ),
-        "waitTime": min(wait_time, 1500) if wait_time is not None else 500,
+        "waitTime": min(wait_time, 5000) if wait_time is not None else 500,
         "adults": num_adults,
         "currency": "USD",
         "countryCode": "US",
