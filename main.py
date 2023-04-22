@@ -7,7 +7,7 @@ import time
 from dotenv import load_dotenv, main
 from requests import request
 from pydantic import BaseModel
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from snowflake import SnowflakeGenerator
 
 from airports import (
@@ -153,16 +153,12 @@ class FlightsRequest(BaseModel):
 
 @app.get("/api/flights")
 def get_flights(
-    date: str, origin: str, dest: str, num_adults: int, waitTime: int | None = None
+    date: str = Query(description="date of flight in YYYYMMDD format"),
+    origin: str = Query(description="3-letter airport code (IATA)"),
+    dest: str = Query(description="3-letter airport code (IATA)"),
+    num_adults: int = Query(description="number of adults"),
+    wait_time: int | None = Query(None, description="max wait time in minutes"),
 ) -> FlightResponse:
-    """
-    date: date of flight in YYYYMMDD format
-    origin: 3-letter airport code
-    dest: 3-letter airport code
-    num_adults: number of adults
-    waitTime: time in milliseconds to wait for a response
-    """
-
     host = "skyscanner50.p.rapidapi.com"
     url = "https:// " + host + "/api/v1/searchFlightsMultiStops"
 
@@ -174,7 +170,7 @@ def get_flights(
                 "date": date,
             }
         ],
-        "waitTime": min(waitTime, 1500) if waitTime is not None else 500,
+        "waitTime": min(wait_time, 1500) if wait_time is not None else 500,
         "adults": num_adults,
         "currency": "USD",
         "countryCode": "US",
