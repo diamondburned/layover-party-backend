@@ -1,6 +1,32 @@
 from datetime import datetime
-
 from pydantic import BaseModel
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    id: str
+    token: str
+    expiry: int
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    first_name: str
+
+
+class MeResponse(BaseModel):
+    id: str
+    email: str
+    first_name: str
+    profile_picture: str | None
+
+
+class ListAirportsResponse(BaseModel):
+    airports: list[Airport]
 
 
 class Carrier(BaseModel):
