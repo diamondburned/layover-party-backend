@@ -8,15 +8,16 @@ from dotenv import load_dotenv, main
 from requests import request
 from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, Request
+from snowflake import SnowflakeGenerator
 
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
     Airport,
 )
+
 from db import db
 from models import FlightResponse
-
 
 load_dotenv()
 
@@ -24,6 +25,7 @@ TOKEN_EXPIRY = 604800  # 1 week
 
 
 app = FastAPI()
+id_generator = SnowflakeGenerator(0)
 
 
 class LoginRequest(BaseModel):
@@ -32,21 +34,22 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
+    id: str
     token: str
     expiry: int
-    attributes: dict
 
 
 class RegisterRequest(BaseModel):
     email: str
-    first_name: str
     password: str
+    first_name: str
 
 
 class MeResponse(BaseModel):
-    email: str
     id: str
+    email: str
     first_name: str
+    profile_picture: str | None
 
 
 class ListAirportsResponse(BaseModel):
@@ -57,44 +60,50 @@ class ListAirportsResponse(BaseModel):
 def login(request: LoginRequest) -> LoginResponse:
     cur = db.cursor()
     res = cur.execute(
-        "SELECT passhash, attributes FROM users WHERE email = ?", (request.email,)
+        "SELECT id, passhash FROM users WHERE email = ?", (request.email,)
     )
 
     row = res.fetchone()
     if row is None:
         raise HTTPException(status_code=401)
 
-    if not bcrypt.checkpw(request.password.encode(), row[0].encode()):
+    if not bcrypt.checkpw(request.password.encode(), row[1].encode()):
         raise HTTPException(status_code=401)
 
     token = base64.b64encode(os.urandom(32)).decode()
     expire = int(time.time()) + TOKEN_EXPIRY
+
     cur.execute(
-        "INSERT INTO sessions (email, token, expiration) VALUES (?, ?, ?)",
-        (request.email, token, expire),
+        "INSERT INTO sessions (token, user_id, expiration) VALUES (?, ?, ?)",
+        (token, row[0], expire),
     )
     db.commit()
 
-    return LoginResponse(token=token, expiry=expire, attributes=json.loads(row[1]))
+    return LoginResponse(
+        id=row[0],
+        token=token,
+        expiry=expire,
+    )
 
 
 @app.post("/api/register")
 def register(request: RegisterRequest):
+    id = str(next(id_generator))
     passhash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
 
     cur = db.cursor()
     cur.execute(
-        "INSERT INTO users (email, first_name, passhash) VALUES (?, ?, ?)",
-        (request.email, request.first_name, passhash),
+        "INSERT INTO users (id, email, first_name, passhash) VALUES (?, ?, ?, ?)",
+        (id, request.email, request.first_name, passhash),
     )
     db.commit()
 
 
 class AuthorizedUser:
-    email: str
+    id: str
 
-    def __init__(self, email: str):
-        self.email = email
+    def __init__(self, id: str):
+        self.id = id
 
 
 def get_authorized_user(request: Request) -> AuthorizedUser:
@@ -108,7 +117,7 @@ def get_authorized_user(request: Request) -> AuthorizedUser:
 
     cur = db.cursor()
     res = cur.execute(
-        "SELECT email FROM sessions WHERE token = ? AND expiration > ?",
+        "SELECT user_id FROM sessions WHERE token = ? AND expiration > ?",
         (token, int(time.time())),
     )
     row = res.fetchone()
@@ -121,13 +130,15 @@ def get_authorized_user(request: Request) -> AuthorizedUser:
 @app.get("/api/me")
 def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
     cur = db.cursor()
-    res = cur.execute("SELECT attributes FROM users WHERE email = ?", (user.email,))
+    res = cur.execute(
+        "SELECT id, email, first_name, profile_picture FROM users WHERE id = ?",
+        (user.id,),
+    )
     row = res.fetchone()
     if row is None:
         raise HTTPException(status_code=500)
 
-    data = json.loads(row[0])
-    return MeResponse(**data)
+    return MeResponse(**row)
 
 
 class FlightsRequest(BaseModel):
