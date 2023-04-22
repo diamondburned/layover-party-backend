@@ -1,21 +1,22 @@
+import json
+import os
+import base64
+import bcrypt
+import time
+
+from dotenv import load_dotenv, main
+from requests import request
 from pydantic import BaseModel
-from db import db
-from typing import TypedDict, Annotated
 from fastapi import FastAPI, Depends, HTTPException, Request
+
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
     Airport,
 )
-import json
-import os
-import sqlite3
-import base64
-import bcrypt
-import time
-from fastapi import FastAPI
-from requests import request
-from dotenv import load_dotenv
+from db import db
+from models import FlightResponse
+
 
 load_dotenv()
 
@@ -41,10 +42,12 @@ class RegisterRequest(BaseModel):
     first_name: str
     password: str
 
+
 class MeResponse(BaseModel):
     email: str
     id: str
     first_name: str
+
 
 class ListAirportsResponse(BaseModel):
     airports: list[Airport]
@@ -135,20 +138,30 @@ class FlightsRequest(BaseModel):
 
 
 @app.get("/api/flights")
-def get_flights(flight_params: FlightsRequest):
+def get_flights(
+    date: str, origin: str, dest: str, num_adults: int, waitTime: int | None = None
+) -> FlightResponse:
+    """
+    date: date of flight in YYYYMMDD format
+    origin: 3-letter airport code
+    dest: 3-letter airport code
+    num_adults: number of adults
+    waitTime: time in milliseconds to wait for a response
+    """
+
     host = "skyscanner50.p.rapidapi.com"
     url = "https:// " + host + "/api/v1/searchFlightsMultiStops"
 
     query_string = {
         "legs": [
             {
-                "origin": flight_params.origin,
-                "destination": flight_params.destination,
-                "date": flight_params.date,
+                "origin": origin,
+                "destination": dest,
+                "date": date,
             }
         ],
-        "waitTime": 5000,
-        "adults": flight_params.num_adults,
+        "waitTime": min(waitTime, 1500) if waitTime is not None else 500,
+        "adults": num_adults,
         "currency": "USD",
         "countryCode": "US",
         "market": "en-US",
@@ -161,7 +174,9 @@ def get_flights(flight_params: FlightsRequest):
 
     res = request("GET", url, headers=headers, params=json.dumps(query_string))
 
-    return res.json()
+    parsed_res = FlightResponse(**res.json())
+
+    return parsed_res
 
 
 @app.get("/api/airports")

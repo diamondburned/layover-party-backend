@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -56,9 +57,10 @@ class Flight(BaseModel):
 
 
 class FlightResponse(BaseModel):
-    status: bool
-    message: str | None
-    data: list[Flight]
+    status: bool | None
+    message: str | object | None
+    timestamp: int | None
+    data: list[Flight] | None
 
 
 if __name__ == "__main__":
