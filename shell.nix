@@ -11,7 +11,8 @@ in
 
 pkgs.mkShell {
 	buildInputs = with unstable; [
-		python311
+		(python311.withPackages (p: with p; [ black ]))
+		pyright
 	];
 
 	shellHook = ''
