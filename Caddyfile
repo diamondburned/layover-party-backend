@@ -1,0 +1,7 @@
+layover.party {
+  reverse_proxy localhost:8000
+}
+
+www.layover.party {
+  redir https://layover.party{uri}
+}
