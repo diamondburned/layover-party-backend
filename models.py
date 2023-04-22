@@ -11,6 +11,8 @@ class LoginResponse(BaseModel):
     id: str
     token: str
     expiry: int
+    first_name: str
+    profile_picture: str | None
 
 
 class RegisterRequest(BaseModel):
