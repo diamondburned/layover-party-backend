@@ -40,7 +40,7 @@ def ping():
 def login(request: LoginRequest) -> LoginResponse:
     cur = db.cursor()
     res = cur.execute(
-        "SELECT id, first_name, profile_picture, passhash FROM users WHERE email = ?", (request.email,)
+        "SELECT id, passhash, first_name, profile_picture FROM users WHERE email = ?", (request.email,)
     )
 
     row = res.fetchone()
@@ -61,8 +61,8 @@ def login(request: LoginRequest) -> LoginResponse:
 
     return LoginResponse(
         id=row[0],
-        first_name=row[1],
-        profile_picture=row[2],
+        first_name=row[2],
+        profile_picture=row[3],
         token=token,
         expiry=expire,
     )
