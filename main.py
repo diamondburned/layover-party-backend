@@ -28,7 +28,7 @@ app = FastAPI()
 id_generator = SnowflakeGenerator(0)
 
 
-@app.post("/api/ping")
+@app.get("/api/ping")
 def ping():
     return "Pong!!!"
 
