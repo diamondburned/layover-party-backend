@@ -19,6 +19,9 @@ from models import *
 
 load_dotenv()
 
+MAX_WAIT = 5000
+MIN_WAIT = 500
+
 TOKEN_EXPIRY = 604800  # 1 week
 
 
@@ -137,7 +140,7 @@ def get_flights(
                 }
             ]
         ),
-        "waitTime": min(wait_time, 5000) if wait_time is not None else 500,
+        "waitTime": min(wait_time, MAX_WAIT) if wait_time is not None else MIN_WAIT,
         "adults": num_adults,
         "currency": "USD",
         "countryCode": "US",
