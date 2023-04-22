@@ -2,6 +2,11 @@ from pydantic import BaseModel
 from db import db
 from typing import TypedDict, Annotated
 from fastapi import FastAPI, Depends, HTTPException, Request
+from airports import (
+    find_by_name as find_airports_by_name,
+    find_by_coords as find_airports_by_coords,
+    Airport,
+)
 import json
 import os
 import sqlite3
@@ -11,6 +16,7 @@ import time
 from fastapi import FastAPI
 from requests import request
 from dotenv import load_dotenv
+
 load_dotenv()
 
 TOKEN_EXPIRY = 604800  # 1 week
@@ -38,6 +44,10 @@ class RegisterRequest(BaseModel):
 class MeResponse(BaseModel):
     email: str
     attributes: dict
+
+
+class ListAirportsResponse(BaseModel):
+    airports: list[Airport]
 
 
 @app.post("/api/login")
@@ -115,11 +125,13 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
 
     return MeResponse(email=user.email, attributes=json.loads(row[0]))
 
+
 class FlightsRequest(BaseModel):
     date: str
     origin: str
     destination: str
     num_adults: int
+
 
 @app.get("/api/flights")
 def get_flights(flight_params: FlightsRequest):
@@ -138,14 +150,31 @@ def get_flights(flight_params: FlightsRequest):
         "adults": flight_params.num_adults,
         "currency": "USD",
         "countryCode": "US",
-        "market": "en-US"
+        "market": "en-US",
     }
 
     headers = {
-            "X-RapidAPI-Key": os.getenv('API_KEY')
-            "X-RapidAPI-Host": host,
-            }
+        "X-RapidAPI-Key": os.getenv("API_KEY"),
+        "X-RapidAPI-Host": host,
+    }
 
     res = request("GET", url, headers=headers, params=json.dumps(query_string))
 
     return res.json()
+
+
+@app.get("/api/airports")
+def airports(
+    name: str | None = None,
+    lat: float | None = None,
+    long: float | None = None,
+    user: AuthorizedUser = Depends(get_authorized_user),
+) -> ListAirportsResponse:
+    if name:
+        airports = find_airports_by_name(name)
+    elif lat and long:
+        airports = find_airports_by_coords(lat, long)
+    else:
+        raise HTTPException(status_code=400, detail="need either ?name or ?lat&long")
+
+    return ListAirportsResponse(airports=airports)
