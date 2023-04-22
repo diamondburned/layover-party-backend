@@ -38,13 +38,13 @@ class LoginResponse(BaseModel):
 
 class RegisterRequest(BaseModel):
     email: str
+    first_name: str
     password: str
-
 
 class MeResponse(BaseModel):
     email: str
-    attributes: dict
-
+    id: str
+    first_name: str
 
 class ListAirportsResponse(BaseModel):
     airports: list[Airport]
@@ -81,8 +81,8 @@ def register(request: RegisterRequest):
 
     cur = db.cursor()
     cur.execute(
-        "INSERT INTO users (email, passhash, attributes) VALUES (?, ?, ?)",
-        (request.email, passhash, json.dumps({})),
+        "INSERT INTO users (email, first_name, passhash) VALUES (?, ?, ?)",
+        (request.email, request.first_name, passhash),
     )
     db.commit()
 
@@ -123,7 +123,8 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
     if row is None:
         raise HTTPException(status_code=500)
 
-    return MeResponse(email=user.email, attributes=json.loads(row[0]))
+    data = json.loads(row[0])
+    return MeResponse(**data)
 
 
 class FlightsRequest(BaseModel):
