@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from db import db
-from typing import TypedDict
-import fastapi
+from typing import TypedDict, Annotated
+from fastapi import FastAPI, Depends, HTTPException, Request
 import json
 import os
 import sqlite3
@@ -12,7 +12,7 @@ import time
 TOKEN_EXPIRY = 604800  # 1 week
 
 
-app = fastapi.FastAPI()
+app = FastAPI()
 
 
 class LoginRequest(BaseModel):
@@ -45,10 +45,10 @@ def login(request: LoginRequest) -> LoginResponse:
 
     row = res.fetchone()
     if row is None:
-        raise fastapi.HTTPException(status_code=401)
+        raise HTTPException(status_code=401)
 
     if not bcrypt.checkpw(request.password.encode(), row[0].encode()):
-        raise fastapi.HTTPException(status_code=401)
+        raise HTTPException(status_code=401)
 
     token = base64.b64encode(os.urandom(32)).decode()
     expire = int(time.time()) + TOKEN_EXPIRY
@@ -73,15 +73,21 @@ def register(request: RegisterRequest):
     db.commit()
 
 
-@app.middleware("http")
-async def must_authorize(request: fastapi.Request, call_next):
+class AuthorizedUser:
+    email: str
+
+    def __init__(self, email: str):
+        self.email = email
+
+
+def get_authorized_user(request: Request) -> AuthorizedUser:
     unauthorized_paths = ["/api/login", "/api/register"]
     if request.url.path in unauthorized_paths:
-        return await call_next(request)
+        raise ValueError("path doesn't have authorization")
 
     token = request.headers.get("Authorization")
     if token is None:
-        raise fastapi.HTTPException(status_code=401)
+        raise HTTPException(status_code=401)
 
     cur = db.cursor()
     res = cur.execute(
@@ -90,26 +96,17 @@ async def must_authorize(request: fastapi.Request, call_next):
     )
     row = res.fetchone()
     if row is None:
-        raise fastapi.HTTPException(status_code=401)
+        raise HTTPException(status_code=401)
 
-    request.state.email = row[0]
-    return await call_next(request)
-
-
-def get_current_email(request: fastapi.Request) -> str:
-    if not hasattr(request.state, "email"):
-        raise fastapi.HTTPException(status_code=401)
-    return request.state.email
+    return AuthorizedUser(row[0])
 
 
 @app.get("/api/me")
-def me(request: fastapi.Request) -> MeResponse:
-    email = get_current_email(request)
-
+def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
     cur = db.cursor()
-    res = cur.execute("SELECT attributes FROM users WHERE email = ?", (email,))
+    res = cur.execute("SELECT attributes FROM users WHERE email = ?", (user.email,))
     row = res.fetchone()
     if row is None:
-        raise fastapi.HTTPException(status_code=500)
+        raise HTTPException(status_code=500)
 
-    return MeResponse(email=email, attributes=json.loads(row[0]))
+    return MeResponse(email=user.email, attributes=json.loads(row[0]))
