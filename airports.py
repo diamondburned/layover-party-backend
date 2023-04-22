@@ -132,3 +132,19 @@ def find_by_name(name: str, limit=10) -> list[Airport]:
         )
         for row in rows
     ]
+
+
+def get_by_iata(iata: str) -> Airport:
+    cur = db.cursor()
+    res = cur.execute("SELECT * FROM airports WHERE iata = ?", (iata,))
+
+    row = res.fetchone()
+    return Airport(
+        iata=row[0],
+        name=row[1],
+        city=row[2],
+        state=row[3],
+        country=row[4],
+        lat=row[5],
+        long=row[6],
+    )

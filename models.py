@@ -71,6 +71,7 @@ class Leg(BaseModel):
     duration: int | None
     carriers: list[Carrier] | None
     stops: list[Stop] | None
+    layover_score: float | None
 
 
 class Price(BaseModel):
@@ -92,6 +93,7 @@ class Flight(BaseModel):
     score: float | None
     transfertype: str | None
     legs: list[Leg] | None
+    layover_score: float | None
 
 
 class FlightResponse(BaseModel):

@@ -3,6 +3,7 @@ import os
 import base64
 import bcrypt
 import time
+from typing import cast
 
 from dotenv import load_dotenv
 from requests import request
@@ -13,6 +14,7 @@ from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
 )
+import flights
 
 from db import db
 from models import *
@@ -40,7 +42,8 @@ def ping():
 def login(request: LoginRequest) -> LoginResponse:
     cur = db.cursor()
     res = cur.execute(
-        "SELECT id, passhash, first_name, profile_picture FROM users WHERE email = ?", (request.email,)
+        "SELECT id, passhash, first_name, profile_picture FROM users WHERE email = ?",
+        (request.email,),
     )
 
     row = res.fetchone()
@@ -130,8 +133,8 @@ def get_flights(
     dest: str = Query(description="3-letter airport code (IATA)"),
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
-    # page: int = Query(1, description="page number"),
-    # TODO: Round trip 
+    page: int = Query(1, description="page number"),
+    # TODO: Round trip
 ) -> FlightResponse:
     # TODO: implement eviction for old cached flights
     PAGE_SIZE = 50
@@ -175,7 +178,6 @@ def get_flights(
         res = request("GET", url, headers=headers, params=query_string)
 
         parsed_res = FlightResponse.parse_raw(res.text)
-
         if parsed_res is None or parsed_res.data is None:
             return parsed_res
 
@@ -189,14 +191,33 @@ def get_flights(
             for leg in flight.legs:
                 if leg.stops is None or len(leg.stops) == 0:
                     to_delete.append(flight)
+                    continue
 
         for flight in to_delete:
             parsed_res.data.remove(flight)
 
+        for flight in parsed_res.data:
+            assert flight.legs is not None
+
+            total_score = 0
+            for leg in flight.legs:
+                leg.layover_score = flights.layover_score(leg)
+                total_score += leg.layover_score
+            flight.layover_score = total_score / len(flight.legs)
+
+        parsed_res.data.sort(
+            # Shut Pyright up.
+            key=lambda flight: cast(float, flight.layover_score),
+            reverse=True,
+        )
+
         resp = parsed_res
 
         cur.execute(
-            "INSERT INTO flight_responses (date, origin, destination, timestamp, response) VALUES (?, ?, ?, ?)",
+            """
+                INSERT INTO flight_responses (date, origin, destination, timestamp, response)
+                    VALUES (?, ?, ?, ?, ?)
+            """,
             (
                 date,
                 origin,
@@ -207,10 +228,10 @@ def get_flights(
         )
         db.commit()
 
-    # if resp.data is not None:
-    #     start = (page - 1) * PAGE_SIZE
-    #     end = start + PAGE_SIZE
-    #     resp.data = resp.data[start:end]
+    if resp.data is not None:
+        start = (page - 1) * PAGE_SIZE
+        end = start + PAGE_SIZE
+        resp.data = resp.data[start:end]
 
     return resp
 
