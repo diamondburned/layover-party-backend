@@ -9,7 +9,7 @@ import base64
 import bcrypt
 import time
 from fastapi import FastAPI
-import requests
+from requests import request
 
 TOKEN_EXPIRY = 604800  # 1 week
 
@@ -113,17 +113,36 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
 
     return MeResponse(email=user.email, attributes=json.loads(row[0]))
 
+class FlightsRequest(BaseModel):
+    date: str
+    origin: str
+    destination: str
+    num_adults: int
+
 @app.get("/api/flights")
-def get_flights():
+def get_flights(flight_params: FlightsRequest):
     url = "https://skyscanner50.p.rapidapi.com/api/v1/searchFlightsMultiStops"
 
-    querystring = {"legs":"[{\"origin\":\"LOND\",\"destination\":\"NYCA\",\"date\":\"2023-04-23\"}]","waitTime":"5000","adults":"1","currency":"USD","countryCode":"US","market":"en-US"}
+    query_string = {
+        "legs": [
+            {
+                "origin": flight_params.origin,
+                "destination": flight_params.destination,
+                "date": flight_params.date,
+            }
+        ],
+        "waitTime":"5000",
+        "adults": flight_params.num_adults,
+        "currency": "USD",
+        "countryCode": "US",
+        "market": "en-US"
+    }
 
     headers = {
             "X-RapidAPI-Key": "c5978eb967msh9fd3dbb2f236aa8p182983jsn9fd1bc432eb3",
             "X-RapidAPI-Host": "skyscanner50.p.rapidapi.com"
             }
 
-    response = requests.request("GET", url, headers=headers, params=querystring)
+    res = request("GET", url, headers=headers, params=json.dumps(query_string))
 
-    return response.json()
+    return res.json()
