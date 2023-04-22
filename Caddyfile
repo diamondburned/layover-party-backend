@@ -1,12 +1,7 @@
 layover.party {
-	handle_path /api* {
-		reverse_proxy localhost:8000
-	}
-
-	handle {
-		root * /home/ubuntu/layover-party-app/web
-		file_server
-	}
+  reverse_proxy /api/* localhost:8000
+  root * /home/ubuntu/layover-party-app/web
+  file_server
 }
 
 www.layover.party {
