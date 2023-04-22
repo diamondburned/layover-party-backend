@@ -25,12 +25,12 @@ class Stop(BaseModel):
 
 class Leg(BaseModel):
     id: str | None
-    origin: list[Stop]
-    destination: list[Stop]
+    origin: Stop | None
+    destination: Stop | None
     departure: datetime
     arrival: datetime
     duration: int | None
-    carriers: list[Carrier]
+    carriers: list[Carrier] | None
 
 
 class Price(BaseModel):
@@ -51,9 +51,9 @@ class Flight(BaseModel):
     quoteage: int | None
     score: float | None
     transfertype: str | None
-    legs: list[Leg]
+    legs: list[Leg] | None
     stopcount: int | None
-    stops: list[Stop]
+    stops: list[Stop] | None
 
 
 class FlightResponse(BaseModel):
