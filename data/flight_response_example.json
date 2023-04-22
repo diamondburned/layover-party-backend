@@ -1,0 +1,78 @@
+{
+  "status": true,
+  "message": "Success",
+  "data": [
+    {
+      "id": "13554-2302070705--31901-1-11442-2302071325|11442-2302131600--31901-0-13416-2302131859|13416-2302181430--31901-1-13554-2302191600",
+      "price": {
+        "amount": 761.61,
+        "update_status": "current",
+        "last_updated": "2022-07-27T06:13:10",
+        "quote_age": 0,
+        "score": 9.20923,
+        "transfer_type": "MANAGED"
+      },
+      "amount": 761.61,
+      "update_status": "current",
+      "last_updated": "2022-07-27T06:13:10",
+      "quote_age": 0,
+      "score": 9.20923,
+      "transfer_type": "MANAGED",
+      "legs": [
+        {
+          "id": "13554-2302070705--31901-1-11442-2302071325",
+          "origin": [
+            {
+              "id": 13554,
+              "entity_id": 95565050,
+              "alt_id": "LHR",
+              "parent_id": 4698,
+              "parent_entity_id": 27544008,
+              "name": "London Heathrow",
+              "type": "Airport",
+              "display_code": "LHR"
+            }
+          ],
+          "destination": [
+            {
+              "id": 11442,
+              "entity_id": 95565059,
+              "alt_id": "EWR",
+              "parent_id": 5772,
+              "parent_entity_id": 27537542,
+              "name": "New York Newark",
+              "type": "Airport",
+              "display_code": "EWR"
+            }
+          ],
+          "departure": "2023-02-07T07:05:00",
+          "arrival": "2023-02-07T13:25:00",
+          "duration": 680,
+          "carriers": [
+            {
+              "id": -31901,
+              "name": "Scandinavian Airlines",
+              "alt_id": "SK",
+              "display_code": "SK",
+              "display_code_type": "IATA",
+              "alliance": -31999
+            }
+          ]
+        }
+      ],
+      "stop_count": 1,
+      "stops": [
+        {
+          "id": 15093,
+          "entity_id": 128667763,
+          "alt_id": "OSL",
+          "parent_id": 5973,
+          "parent_entity_id": 27538634,
+          "name": "Oslo Gardermoen",
+          "type": "Airport",
+          "display_code": "OSL"
+        }
+      ]
+    }
+  ]
+}
