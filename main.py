@@ -18,7 +18,7 @@ from db import db
 from deps import get_authorized_user
 from models import *
 from flights import remove_invalid_flights, calculate_layover_scores
-from layovers import set_popularity_for_flights
+from layovers import set_popularity_for_flights, get_users_in_layover
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
@@ -354,3 +354,11 @@ def airports(
         raise HTTPException(status_code=400, detail="need either ?name or ?lat&long")
 
     return ListAirportsResponse(airports=airports)
+
+
+@app.get("/api/layovers/{iata_code}")
+def get_layovers_for_airport(
+    iata_code: str, 
+    user: AuthorizedUser = Depends(get_authorized_user)
+) -> list[UserResponse]:
+    return get_users_in_layover(user.id, iata_code)

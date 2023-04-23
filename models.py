@@ -164,6 +164,13 @@ class FlightDetail(BaseModel):
     pop_score: int | None
 
 
+class LayoverDb(BaseModel):
+    user_id: str
+    arrive: int
+    depart: int
+    iata_code: str
+
+
 class FlightDetailResponse(BaseModel):
     status: bool | None
     message: str | object | None
