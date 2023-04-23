@@ -116,6 +116,14 @@ class Layover(BaseModel):
     destination: DetailStop
     duration: int | None
 
+class Carrier(BaseModel):
+    id: str
+    name: str | None
+    displayCode: str | None
+    displayCodeType: str | None
+    brandColor: str | None
+    logo: str | None
+    altId: str | None
 
 class Segment(BaseModel):
     id: str
@@ -126,6 +134,8 @@ class Segment(BaseModel):
     flightNumber: str | None
     departure: datetime
     arrival: datetime
+    marketingCarrier: Carrier | None
+    operatingCarrier: Carrier | None
 
 
 class LegDetail(BaseModel):
