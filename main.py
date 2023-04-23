@@ -15,10 +15,10 @@ from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
 )
-import flights
 
 from db import db
 from deps import get_authorized_user
+from flights import remove_invalid_flights, calculate_layover_scores
 from models import *
 
 load_dotenv()
@@ -37,7 +37,9 @@ TOKEN_EXPIRY = 604800  # 1 week
 
 
 app = FastAPI(
-    docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json"
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 id_generator = SnowflakeGenerator(0)
 
@@ -106,8 +108,9 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> UserResponse:
 
     return UserResponse(**row)
 
-@app.get("/api/user")
-def me(id: str) -> UserResponse:
+
+@app.get("/api/user/{id}")
+def get_user(id: str) -> UserResponse:
     cur = db.cursor()
     res = cur.execute(
         "SELECT id, email, first_name, profile_picture FROM users WHERE id = ?",
@@ -155,11 +158,13 @@ def get_flight_details(
 async def get_flights(
     origin: str = Query(description="3-letter airport code (IATA)"),
     dest: str = Query(description="3-letter airport code (IATA)"),
-    date: str = Query(description="date of first flight in YYYYMMDD format"),
+    date: str = Query(description="date of first flight in YYYY-MM-DD format"),
     return_date: str
-    | None = Query(None, description="date of the returning flight in YYYYMMDD format"),
+    | None = Query(
+        None, description="date of the returning flight in YYYY-MM-DD format"
+    ),
     num_adults: int | None = Query(1, description="number of adults"),
-    wait_time: int | None = Query(None, description="max wait time in minutes"),
+    wait_time: int | None = Query(None, description="max wait time in milliseconds"),
     page: int = Query(1, description="page number"),
 ) -> list[FlightDetailResponse]:
     # TODO: implement eviction for old cached flights
@@ -199,29 +204,8 @@ async def get_flights(
         if parsed_res is None or parsed_res.data is None:
             raise HTTPException(status_code=404, detail="No flights found")
 
-        to_delete = []
-
-        for flight in parsed_res.data:
-            if flight.legs is None:
-                to_delete.append(flight)
-                continue
-
-            for leg in flight.legs:
-                if leg.stops is None or len(leg.stops) == 0:
-                    to_delete.append(flight)
-                    continue
-
-        for flight in to_delete:
-            parsed_res.data.remove(flight)
-
-        for flight in parsed_res.data:
-            assert flight.legs is not None
-
-            total_score = 0
-            for leg in flight.legs:
-                leg.layover_hours = flights.layover_score(leg)
-                total_score += leg.layover_hours
-            flight.layover_hours = total_score / len(flight.legs)
+        parsed_res.data = remove_invalid_flights(parsed_res.data)
+        parsed_res.data = calculate_layover_scores(parsed_res.data)
 
         parsed_res.data.sort(
             # Shut Pyright up.

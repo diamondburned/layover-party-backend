@@ -123,6 +123,7 @@ class Layover(BaseModel):
     destination: DetailStop
     duration: int | None
 
+
 class Carrier(BaseModel):
     id: str
     name: str | None
@@ -131,6 +132,7 @@ class Carrier(BaseModel):
     brandColor: str | None
     logo: str | None
     altId: str | None
+
 
 class Segment(BaseModel):
     id: str

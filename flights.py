@@ -92,3 +92,38 @@ def layover_score(leg: Leg) -> float:
     # includes layovers.
     total_duration = (leg.arrival - leg.departure).total_seconds() / 3600  # hours
     return total_duration - flight_time
+
+
+def remove_invalid_flights(flights: list[Flight]) -> list[Flight]:
+    to_delete = []
+
+    for flight in flights:
+        if flight.legs is None:
+            to_delete.append(flight)
+            continue
+
+        for leg in flight.legs:
+            if leg.stops is None or len(leg.stops) == 0:
+                to_delete.append(flight)
+                continue
+
+    for flight in to_delete:
+        flights.remove(flight)
+
+    return flights
+
+
+def calculate_layover_scores(flights: list[Flight]) -> list[Flight]:
+    """
+    Calculates the layover scores for each flight in the given parsed response.
+    """
+    for flight in flights:
+        assert flight.legs is not None
+
+        total_score = 0
+        for leg in flight.legs:
+            leg.layover_hours = layover_score(leg)
+            total_score += leg.layover_hours
+        flight.layover_hours = total_score / len(flight.legs)
+
+    return flights
