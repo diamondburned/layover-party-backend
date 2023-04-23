@@ -2,6 +2,13 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class AuthorizedUser:
+    id: str
+
+    def __init__(self, id: str):
+        self.id = id
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

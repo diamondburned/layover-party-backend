@@ -18,6 +18,7 @@ from airports import (
 import flights
 
 from db import db
+from deps import get_authorized_user
 from models import *
 
 load_dotenv()
@@ -90,34 +91,6 @@ def register(request: RegisterRequest):
         (id, request.email, request.first_name, passhash),
     )
     db.commit()
-
-
-class AuthorizedUser:
-    id: str
-
-    def __init__(self, id: str):
-        self.id = id
-
-
-def get_authorized_user(request: Request) -> AuthorizedUser:
-    unauthorized_paths = ["/api/login", "/api/register"]
-    if request.url.path in unauthorized_paths:
-        raise ValueError("path doesn't have authorization")
-
-    token = request.headers.get("Authorization")
-    if token is None:
-        raise HTTPException(status_code=401)
-
-    cur = db.cursor()
-    res = cur.execute(
-        "SELECT user_id FROM sessions WHERE token = ? AND expiration > ?",
-        (token, int(time.time())),
-    )
-    row = res.fetchone()
-    if row is None:
-        raise HTTPException(status_code=401)
-
-    return AuthorizedUser(row[0])
 
 
 @app.get("/api/me")
