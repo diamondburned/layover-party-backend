@@ -58,7 +58,7 @@ def get_users_in_layover(user_id: str, iata_code: str):
     cur = db.cursor()
     res = cur.execute(
         """
-            SELECT * FROM layovers
+            SELECT user_id, iata_code, arrive, depart FROM layovers
             WHERE iata_code = ?
             AND user_id = ?
         """,
@@ -73,7 +73,13 @@ def get_users_in_layover(user_id: str, iata_code: str):
 
     other_res = cur.execute(
         """
-            SELECT arrive, depart, users.* FROM layovers
+            SELECT
+                users.id,
+                users.email,
+                users.first_name,
+                users.profile_picture,
+                users.phone_number
+            FROM layovers
             JOIN users ON layovers.user_id = users.id
             WHERE iata_code = ? AND user_id != ?
             AND arrive <= ? OR depart >= ?
