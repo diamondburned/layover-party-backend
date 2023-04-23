@@ -108,7 +108,8 @@ def remove_invalid_flights(flights: list[Flight]) -> list[Flight]:
                 continue
 
     for flight in to_delete:
-        flights.remove(flight)
+        if flight in flights:
+            flights.remove(flight)
 
     return flights
 

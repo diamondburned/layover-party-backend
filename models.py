@@ -124,7 +124,7 @@ class Layover(BaseModel):
     duration: int | None
 
 
-class Carrier(BaseModel):
+class CarrierDetail(BaseModel):
     id: str
     name: str | None
     displayCode: str | None
@@ -143,8 +143,8 @@ class Segment(BaseModel):
     flightNumber: str | None
     departure: datetime
     arrival: datetime
-    marketingCarrier: Carrier | None
-    operatingCarrier: Carrier | None
+    marketingCarrier: CarrierDetail | None
+    operatingCarrier: CarrierDetail | None
 
 
 class LegDetail(BaseModel):
@@ -161,6 +161,7 @@ class LegDetail(BaseModel):
 
 class FlightDetail(BaseModel):
     legs: list[LegDetail] | None
+    pop_score: int | None
 
 
 class FlightDetailResponse(BaseModel):

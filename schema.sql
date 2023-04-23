@@ -20,7 +20,7 @@ DROP TABLE IF EXISTS flight_responses;
 
 CREATE TABLE IF NOT EXISTS layovers (
 	user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  iata_code TEXT NOT NULL,
-  arrive INTEGER NOT NULL,
-  depart INTEGER NOT NULL
+	iata_code TEXT NOT NULL,
+	arrive INTEGER NOT NULL,
+	depart INTEGER NOT NULL
 );
