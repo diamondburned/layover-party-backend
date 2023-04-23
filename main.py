@@ -1,4 +1,5 @@
 import json
+import asyncio
 import os
 import base64
 import bcrypt
@@ -166,7 +167,7 @@ def get_flight_details(
     return FlightDetailResponse.parse_raw(res.text)
 
 @app.get("/api/flights")
-def get_flights(
+async def get_flights(
     origin: str = Query(description="3-letter airport code (IATA)"),
     dest: str = Query(description="3-letter airport code (IATA)"),
     date: str = Query(description="date of first flight in YYYYMMDD format"),
@@ -260,10 +261,12 @@ def get_flights(
         end = start + PAGE_SIZE
         resp.data = resp.data[start:end]
 
-    details = []
-    for trip in resp.data:
-        detail = get_flight_details(itineraryId=trip.id, date=date, return_date=return_date, num_adults=num_adults, origin=origin, dest=dest)
-        details.append(detail)
+    details = [None] * len(resp.data)
+    async def loop(i):
+        detail = get_flight_details(itineraryId=resp.data[i].id, date=date, return_date=return_date, num_adults=num_adults, origin=origin, dest=dest)
+        details[i] = detail
+    coros = [loop(i) for i in range(len(resp.data))]
+    await asyncio.gather(*coros)
 
     return details
 
