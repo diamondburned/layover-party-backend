@@ -71,7 +71,7 @@ def get_users_in_layover(user_id: str, iata_code: str):
 
     other_res = cur.execute(
         """
-            SELECT users.* FROM layovers
+            SELECT arrive, depart, users.* FROM layovers
             JOIN users ON layovers.user_id = users.id
             WHERE iata_code = ? AND user_id != ?
             AND arrive <= ? OR depart >= ?
@@ -84,7 +84,23 @@ def get_users_in_layover(user_id: str, iata_code: str):
     if rows is None:
         return []
 
-    return [UserResponse(**r) for r in rows if r[0] != user_id]
+    users = [UserResponse(**r) for r in rows if r[0] != user_id]
+
+    times = {}
+    for row in rows:
+        times[row[2]] = (row[0], row[1])
+
+    matching = []
+
+    for user in users:
+        # if other departs after you arrive
+        if times[user.id][1] > curr_user.arrive and times[user.id][1] - curr_user.arrive >= 30:
+            matching.append(user)
+        # if other arrives before you depart
+        elif times[user.id][0] < curr_user.depart and curr_user.depart - times[user.id][0] >= 30:
+            matching.append(user)
+
+    return matching
 
 
 if __name__ == "__main__":
