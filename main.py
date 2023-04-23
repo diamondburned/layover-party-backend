@@ -7,6 +7,7 @@ import bcrypt
 import time
 import hashlib
 from typing import cast
+from sqlite3 import IntegrityError
 
 from dotenv import load_dotenv
 from requests import request
@@ -122,20 +123,27 @@ def register(request: RegisterRequest):
     id = str(next(id_generator))
     passhash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
 
-    cur.execute(
-        "INSERT INTO users (id, email, first_name, passhash) VALUES (?, ?, ?, ?)",
-        (id, request.email, request.first_name, passhash),
-    )
-    db.commit()
+    try:
+        cur.execute(
+            "INSERT INTO users (id, email, first_name, passhash) VALUES (?, ?, ?, ?)",
+            (id, request.email, request.first_name, passhash),
+        )
+        db.commit()
+    except IntegrityError as e:
+        raise HTTPException(status_code=400, detail="Failed to create user")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to create user")
 
 
 @app.get("/api/me")
 def me(user: AuthorizedUser = Depends(get_authorized_user)) -> UserResponse:
     cur = db.cursor()
+
     res = cur.execute(
         "SELECT id, email, first_name, profile_picture FROM users WHERE id = ?",
         (user.id,),
     )
+
     row = res.fetchone()
     if row is None:
         raise HTTPException(status_code=500)
@@ -385,15 +393,26 @@ def add_layover(
     if get_airport_by_iata(body.iata) is None:
         raise HTTPException(status_code=404, detail="Airport not found")
 
-    cur = db.cursor()
-    cur.execute(
-        """
-        INSERT INTO layovers (iata_code, depart, arrive, user_id)
-        VALUES (?, ?, ?, ?)
-        """,
-        (body.iata, body.depart, body.arrive, user.id),
-    )
-    db.commit()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            """
+            INSERT INTO layovers (iata_code, depart, arrive, user_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            (body.iata, body.depart, body.arrive, user.id),
+        )
+        db.commit()
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
 
 
 @app.delete("/api/layovers", status_code=204)
