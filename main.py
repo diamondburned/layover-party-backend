@@ -22,6 +22,7 @@ from layovers import set_popularity_for_flights
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
+    get_by_iata as get_airport_by_iata,
 )
 
 load_dotenv()
@@ -262,6 +263,81 @@ async def get_flights(
     set_popularity_for_flights(details_pop)
 
     return details_pop
+
+
+@app.get("/api/layovers")
+def layovers(
+    user: AuthorizedUser = Depends(get_authorized_user),
+) -> LayoversResponse:
+    """
+    Get all of the current user's interested layover flights.
+    """
+    cur = db.cursor()
+    res = cur.execute(
+        "SELECT iata_code, arrive, depart FROM layovers WHERE user_id = ?",
+        (user.id,),
+    )
+
+    layovers: list[LayoversResponse.Layover] = []
+
+    rows = res.fetchall()
+    for row in rows:
+        airport = get_airport_by_iata(row[0])
+        if airport is None:
+            continue
+
+        layovers.append(
+            LayoversResponse.Layover(
+                iata=row[0],
+                airport=airport,
+                arrive=row[1],
+                depart=row[2],
+            )
+        )
+
+    return LayoversResponse(layovers=layovers)
+
+
+@app.post("/api/layovers", status_code=204)
+def add_layover(
+    body: AddOrRemoveLayoverRequest,
+    user: AuthorizedUser = Depends(get_authorized_user),
+):
+    """
+    Mark a layover flight as interested. This contributes towards a popularity
+    score for each airport.
+    """
+    if get_airport_by_iata(body.iata) is None:
+        raise HTTPException(status_code=404, detail="Airport not found")
+
+    cur = db.cursor()
+    cur.execute(
+        """
+        INSERT INTO layovers (iata_code, depart, arrive, user_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (body.iata, body.depart, body.arrive, user.id),
+    )
+    db.commit()
+
+
+@app.delete("/api/layovers", status_code=204)
+def remove_layover(
+    body: AddOrRemoveLayoverRequest,
+    user: AuthorizedUser = Depends(get_authorized_user),
+):
+    """
+    Unmark a layover flight as interested. This undoes add_layover.
+    """
+    cur = db.cursor()
+    cur.execute(
+        """
+        DELETE FROM layovers
+        WHERE iata_code = ? AND depart = ? AND arrive = ? AND user_id = ?
+        """,
+        (body.iata, body.depart, body.arrive, user.id),
+    )
+    db.commit()
 
 
 @app.get("/api/airports")

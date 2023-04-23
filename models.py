@@ -171,6 +171,22 @@ class FlightDetailResponse(BaseModel):
     data: FlightDetail | None
 
 
+class AddOrRemoveLayoverRequest(BaseModel):
+    iata: str
+    depart: datetime
+    arrive: datetime
+
+
+class LayoversResponse(BaseModel):
+    class Layover(BaseModel):
+        iata: str
+        airport: Airport
+        arrive: datetime
+        depart: datetime
+
+    layovers: list[Layover]
+
+
 if __name__ == "__main__":
     with open("data/flight_response_example.json") as f:
         js = f.read()

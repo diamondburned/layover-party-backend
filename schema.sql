@@ -24,3 +24,6 @@ CREATE TABLE IF NOT EXISTS layovers (
 	arrive INTEGER NOT NULL,
 	depart INTEGER NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS layovers_unique_idx
+	ON layovers(user_id, iata_code, arrive, depart);

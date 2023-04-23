@@ -134,11 +134,14 @@ def find_by_name(name: str, limit=10) -> list[Airport]:
     ]
 
 
-def get_by_iata(iata: str) -> Airport:
+def get_by_iata(iata: str) -> Airport | None:
     cur = db.cursor()
     res = cur.execute("SELECT * FROM airports WHERE iata = ?", (iata,))
 
     row = res.fetchone()
+    if row is None:
+        return None
+
     return Airport(
         iata=row[0],
         name=row[1],
