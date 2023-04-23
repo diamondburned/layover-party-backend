@@ -33,6 +33,7 @@ class UserResponse(BaseModel):
     email: str
     first_name: str
     profile_picture: str | None
+    phone_number: str | None
 
 
 class Airport(BaseModel):
