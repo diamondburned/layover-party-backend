@@ -207,7 +207,7 @@ async def get_flights(
 
     validate_iata(origin, dest)
 
-    if date <= return_date:
+    if date > return_date:
         raise HTTPException(status_code=400, detail="Invalid dates")
 
     async def fetchSearch() -> str:
