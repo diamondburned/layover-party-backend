@@ -36,6 +36,12 @@ class UserResponse(BaseModel):
     phone_number: str | None
 
 
+class MeUpdate(BaseModel):
+    email: str | None
+    first_name: str | None
+    profile_picture: str | None
+
+
 class Airport(BaseModel):
     iata: str
     name: str

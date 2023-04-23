@@ -143,6 +143,38 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> UserResponse:
     return UserResponse(**row)
 
 
+@app.patch("/api/me")
+def update_me(
+    update: MeUpdate,
+    user: AuthorizedUser = Depends(get_authorized_user),
+) -> UserResponse:
+    cur = db.cursor()
+
+    q = "UPDATE users SET "
+    v = []
+
+    if update.email is not None:
+        q += "email = ?, "
+        v.append(update.email)
+
+    if update.first_name is not None:
+        q += "first_name = ?, "
+        v.append(update.first_name)
+
+    if update.profile_picture is not None:
+        q += "profile_picture = ?, "
+        v.append(update.profile_picture)
+
+    if len(v) != 0:
+        q = q[:-2] + " WHERE id = ?"
+        v.append(user.id)
+
+        cur.execute(q, v)
+        db.commit()
+
+    return me(user)
+
+
 @app.get("/api/user/{id}")
 def get_user(id: str) -> UserResponse:
     cur = db.cursor()
