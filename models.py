@@ -119,8 +119,8 @@ class Layover(BaseModel):
 
 class Segment(BaseModel):
     id: str
-    origin: str
-    destination: str
+    origin: DetailStop
+    destination: DetailStop
     duration: int | None
     dayChange: int | None
     flightNumber: str | None
@@ -148,7 +148,7 @@ class FlightDetailResponse(BaseModel):
     status: bool | None
     message: str | object | None
     timestamp: int | None
-    data: list[FlightDetail] | None
+    data: FlightDetail | None
 
 
 if __name__ == "__main__":
