@@ -10,16 +10,17 @@ from dotenv import load_dotenv
 from requests import request
 from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from snowflake import SnowflakeGenerator
+from aiohttp import ClientSession
 
+import httpcache
+from db import db
+from deps import get_authorized_user
+from models import *
+from flights import remove_invalid_flights, calculate_layover_scores
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
 )
-
-from db import db
-from deps import get_authorized_user
-from flights import remove_invalid_flights, calculate_layover_scores
-from models import *
 
 load_dotenv()
 
@@ -41,6 +42,7 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+httpclient = ClientSession()
 id_generator = SnowflakeGenerator(0)
 
 
@@ -124,7 +126,7 @@ def get_user(id: str) -> UserResponse:
     return UserResponse(**row)
 
 
-def get_flight_details(
+async def get_flight_details(
     itineraryId: str,
     date: str,
     return_date: str | None,
@@ -132,8 +134,7 @@ def get_flight_details(
     num_adults: int | None,
     dest: str,
 ) -> FlightDetailResponse:
-    res = request(
-        "GET",
+    res = await httpclient.get(
         RAPID_API_URL + "/getFlightDetails",
         headers=RAPID_API_HEADERS,
         params={
@@ -151,7 +152,8 @@ def get_flight_details(
         },
     )
 
-    return FlightDetailResponse.parse_raw(res.text)
+    data = await res.text()
+    return FlightDetailResponse.parse_raw(data)
 
 
 @app.get("/api/flights")
@@ -171,86 +173,89 @@ async def get_flights(
     resp: FlightApiResponse
     PAGE_SIZE = 5
 
-    cur = db.cursor()
-    res = cur.execute(
-        "SELECT response FROM flight_responses WHERE date = ? AND origin = ? AND destination = ?",
-        (date, origin, dest),
-    )
-
-    row = res.fetchone()
-    if row is not None:
-        resp = FlightApiResponse.parse_raw(row[0])
-    else:
-        query_string = {
-            "origin": origin,
-            "destination": dest,
-            "date": date,
-            "returnDate": return_date,
-            "waitTime": min(wait_time, MAX_WAIT) if wait_time is not None else MIN_WAIT,
-            "adults": num_adults,
-            "currency": "USD",
-            "countryCode": "US",
-            "market": "en-US",
-        }
-
-        res = request(
-            "GET",
+    async def fetchSearch() -> str:
+        res = await httpclient.get(
             RAPID_API_URL + "/searchFlights",
             headers=RAPID_API_HEADERS,
-            params=query_string,
+            params={
+                "origin": origin,
+                "destination": dest,
+                "date": date,
+                "returnDate": return_date,
+                "waitTime": min(wait_time, MAX_WAIT)
+                if wait_time is not None
+                else MIN_WAIT,
+                "adults": num_adults,
+                "currency": "USD",
+                "countryCode": "US",
+                "market": "en-US",
+            },
         )
 
-        parsed_res = FlightApiResponse.parse_raw(res.text)
-        if parsed_res is None or parsed_res.data is None:
+        data = FlightApiResponse.parse_raw(await res.text())
+        if data is None or data.data is None:
             raise HTTPException(status_code=404, detail="No flights found")
 
-        parsed_res.data = remove_invalid_flights(parsed_res.data)
-        parsed_res.data = calculate_layover_scores(parsed_res.data)
+        data.data = remove_invalid_flights(data.data)
+        data.data = calculate_layover_scores(data.data)
 
-        parsed_res.data.sort(
+        data.data.sort(
             # Shut Pyright up.
             key=lambda flight: cast(float, flight.layover_hours),
             reverse=True,
         )
 
-        resp = parsed_res
+        return data.json()
 
-        cur.execute(
-            """
-                INSERT INTO flight_responses (date, origin, destination, timestamp, response)
-                    VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                date,
-                origin,
-                dest,
-                resp.timestamp or int(time.time() * 1000),
-                resp.json(),
-            ),
-        )
-        db.commit()
+    search_cache_key = {
+        "origin": origin,
+        "dest": dest,
+        "date": date,
+        "return_date": return_date,
+    }
 
-    if resp.data is None:
-        return []
+    if (search_data := httpcache.get(search_cache_key)) is None:
+        search_data = await fetchSearch()
+        httpcache.set(search_cache_key, search_data)
+
+    search = FlightApiResponse.parse_raw(search_data)
+    if search is None or search.data is None:
+        raise HTTPException(status_code=404, detail="No flights found")
 
     start = (page - 1) * PAGE_SIZE
     end = start + PAGE_SIZE
-    resp.data = resp.data[start:end]
+    search.data = search.data[start:end]
 
-    details: list[FlightDetailResponse | None] = [None] * len(resp.data)
+    details: list[FlightDetailResponse | None] = [None] * len(search.data)
 
     async def loop(i):
-        assert resp.data is not None
-        details[i] = get_flight_details(
-            itineraryId=resp.data[i].id,
+        assert search.data is not None
+
+        cacheKey = {
+            "itineraryId": search.data[i].id,
+            "origin": origin,
+            "dest": dest,
+            "date": date,
+            "return_date": return_date,
+        }
+
+        if (cache := httpcache.get(cacheKey)) is not None:
+            details[i] = FlightDetailResponse.parse_raw(cache)
+            return
+
+        res = await get_flight_details(
+            itineraryId=search.data[i].id,
+            origin=origin,
+            dest=dest,
             date=date,
             return_date=return_date,
             num_adults=num_adults,
-            origin=origin,
-            dest=dest,
         )
 
-    coros = [loop(i) for i in range(len(resp.data))]
+        httpcache.set(cacheKey, res.json())
+        details[i] = res
+
+    coros = [loop(i) for i in range(len(search.data))]
     await asyncio.gather(*coros)
 
     return cast(list[FlightDetailResponse], details)
