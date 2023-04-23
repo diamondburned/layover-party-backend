@@ -138,7 +138,8 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
 def get_flight_details(
     itineraryId: str = Query(description="The id of the trip"),
     date: str = Query(description="date of first flight in YYYYMMDD format"),
-    return_date: str = Query(description="date of last flight in YYYYMMDD format"),
+    return_date: str
+    | None = Query(None, description="date of last flight in YYYYMMDD format"),
     origin: str = Query(description="3-letter airport code (IATA)"),
     num_adults: int | None = Query(1, description="number of adults"),
     dest: str = Query(description="3-letter airport code (IATA)"),
@@ -168,7 +169,7 @@ async def get_flights(
     dest: str = Query(description="3-letter airport code (IATA)"),
     date: str = Query(description="date of first flight in YYYYMMDD format"),
     return_date: str
-    | None = Query(description="date of the returning flight in YYYYMMDD format"),
+    | None = Query(None, description="date of the returning flight in YYYYMMDD format"),
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
     page: int = Query(1, description="page number"),
@@ -257,15 +258,18 @@ async def get_flights(
         )
         db.commit()
 
-    if resp.data is not None:
-        start = (page - 1) * PAGE_SIZE
-        end = start + PAGE_SIZE
-        resp.data = resp.data[start:end]
+    if resp.data is None:
+        return []
 
-    details = [None] * len(resp.data)
+    start = (page - 1) * PAGE_SIZE
+    end = start + PAGE_SIZE
+    resp.data = resp.data[start:end]
+
+    details: list[FlightDetailResponse | None] = [None] * len(resp.data)
 
     async def loop(i):
-        detail = get_flight_details(
+        assert resp.data is not None
+        details[i] = get_flight_details(
             itineraryId=resp.data[i].id,
             date=date,
             return_date=return_date,
@@ -273,12 +277,11 @@ async def get_flights(
             origin=origin,
             dest=dest,
         )
-        details[i] = detail
 
     coros = [loop(i) for i in range(len(resp.data))]
     await asyncio.gather(*coros)
 
-    return details
+    return cast(list[FlightDetailResponse], details)
 
 
 @app.get("/api/airports")
