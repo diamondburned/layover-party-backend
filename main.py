@@ -162,7 +162,6 @@ def get_flight_details(
     }
     url = RAPID_API_URL + "/getFlightDetails"
     res = request("GET", url, headers=RAPID_API_HEADERS, params=query_string)
-    print(res.text)
 
     return FlightDetailResponse.parse_raw(res.text)
 
@@ -175,10 +174,10 @@ def get_flights(
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
     page: int = Query(1, description="page number"),
-) -> FlightApiResponse:
+) -> list[FlightDetailResponse]:
     # TODO: implement eviction for old cached flights
     resp: FlightApiResponse
-    PAGE_SIZE = 10
+    PAGE_SIZE = 5
 
     cur = db.cursor()
     res = cur.execute(
@@ -261,7 +260,12 @@ def get_flights(
         end = start + PAGE_SIZE
         resp.data = resp.data[start:end]
 
-    return resp
+    details = []
+    for trip in resp.data:
+        detail = get_flight_details(itineraryId=trip.id, date=date, return_date=return_date, num_adults=num_adults, origin=origin, dest=dest)
+        details.append(detail)
+
+    return details
 
 
 @app.get("/api/airports")
