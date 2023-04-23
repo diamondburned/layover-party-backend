@@ -138,37 +138,40 @@ def get_flight_details(
         date: str = Query(description="date of first flight in YYYYMMDD format"),
         return_date: str = Query(description="date of last flight in YYYYMMDD format"),
         origin: str = Query(description="3-letter airport code (IATA)"),
+        num_adults: int | None = Query(1, description="number of adults"),
         dest: str = Query(description="3-letter airport code (IATA)"),
     ):
     query_string = {
         "itineraryId": itineraryId,
-        "legs": json.dumps(
-            [
-                {
-                    "origin": origin,
-                    "destination": dest,
-                    "date": date,
-                },
-                {
-                    "origin": dest,
-                    "destination": origin,
-                    "date": return_date,
-                }
-            ]
-        ),
+        "legs": json.dumps([
+            {
+                "origin": origin,
+                "destination": dest,
+                "date": date
+            },
+            {
+                "origin": dest,
+                "destination": origin,
+                "date": return_date
+            }
+        ]),
+        "adults": num_adults,
+        "currency": "USD",
+        "countryCode": "US",
+        "market": "en-US"
     }
-    print(query_string)
-    res = request("GET", RAPID_API_URL + "/getFlightDetails", headers=RAPID_API_HEADERS, params=query_string)
+    url = RAPID_API_URL + "/getFlightDetails"
+    res = request("GET", url, headers=RAPID_API_HEADERS, params=query_string)
     print(res.text)
 
     return FlightDetailResponse.parse_raw(res.text)
 
 @app.get("/api/flights")
 def get_flights(
-    date: str = Query(description="date of first flight in YYYYMMDD format"),
-    return_date: str | None = Query(description="date of the returning flight in YYYYMMDD format"),
     origin: str = Query(description="3-letter airport code (IATA)"),
     dest: str = Query(description="3-letter airport code (IATA)"),
+    date: str = Query(description="date of first flight in YYYYMMDD format"),
+    return_date: str | None = Query(description="date of the returning flight in YYYYMMDD format"),
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in minutes"),
     page: int = Query(1, description="page number"),
