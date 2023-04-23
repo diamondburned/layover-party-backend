@@ -69,7 +69,12 @@ def get_users_in_layover(user_id: str, iata_code: str):
     if row is None:
         return []
 
-    curr_user = LayoverDb(**row)
+    curr_user = LayoverDb(
+        user_id=row[0],
+        iata_code=row[1],
+        arrive=row[2],
+        depart=row[3],
+    )
 
     other_res = cur.execute(
         """
