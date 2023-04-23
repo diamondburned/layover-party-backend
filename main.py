@@ -24,6 +24,13 @@ load_dotenv()
 MAX_WAIT = 5000
 MIN_WAIT = 500
 
+RAPID_API_HOST = "skyscanner50.p.rapidapi.com"
+RAPID_API_URL = "https://" + RAPID_API_HOST + "/api/v1"
+RAPID_API_HEADERS = {
+    "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
+    "X-RapidAPI-Host": RAPID_API_HOST
+}
+
 TOKEN_EXPIRY = 604800  # 1 week
 
 
@@ -125,6 +132,28 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
 
     return MeResponse(**row)
 
+@app.get("/api/flight_details") 
+def get_flight_details(
+        itineraryId: str = Query(description="The id of the trip"),
+        date: str = Query(description="date of flight in YYYYMMDD format"),
+        origin: str = Query(description="3-letter airport code (IATA)"),
+        dest: str = Query(description="3-letter airport code (IATA)"),
+        ):
+    query_string = {
+        "itineraryId": itineraryId,
+        "legs": json.dumps(
+            [
+                {
+                    "origin": origin,
+                    "destination": dest,
+                    "date": date,
+                }
+            ]
+        ),
+    }
+    res = request("GET", RAPID_API_URL + "/getFlightDetails", headers=RAPID_API_HEADERS, params=query_string)
+
+    return FlightDetailResponse.parse_raw(res.text)
 
 @app.get("/api/flights")
 def get_flights(
@@ -137,8 +166,8 @@ def get_flights(
     # TODO: Round trip
 ) -> FlightApiResponse:
     # TODO: implement eviction for old cached flights
-    PAGE_SIZE = 50
     resp: FlightApiResponse
+    PAGE_SIZE = 10
 
     cur = db.cursor()
     res = cur.execute(
@@ -150,8 +179,6 @@ def get_flights(
     if row is not None:
         resp = FlightApiResponse.parse_raw(row[0])
     else:
-        host = "skyscanner50.p.rapidapi.com"
-        url = "https://" + host + "/api/v1/searchFlightsMultiStops"
 
         query_string = {
             "legs": json.dumps(
@@ -170,12 +197,7 @@ def get_flights(
             "market": "en-US",
         }
 
-        headers = {
-            "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
-            "X-RapidAPI-Host": host,
-        }
-
-        res = request("GET", url, headers=headers, params=query_string)
+        res = request("GET", RAPID_API_URL + "/searchFlightsMultiStops", headers=RAPID_API_HEADERS, params=query_string)
 
         parsed_res = FlightApiResponse.parse_raw(res.text)
         if parsed_res is None or parsed_res.data is None:
