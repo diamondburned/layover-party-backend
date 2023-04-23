@@ -96,23 +96,73 @@ class Flight(BaseModel):
     layover_hours: float | None
 
 
-class FlightResponse(BaseModel):
+class FlightApiResponse(BaseModel):
     status: bool | None
     message: str | object | None
     timestamp: int | None
     data: list[Flight] | None
 
 
+class DetailStop(BaseModel):
+  id: str
+  name: str
+  displayCode: str
+  city: str
+
+
+class Layover(BaseModel):
+  segmentId: str
+  origin: DetailStop
+  destination: DetailStop
+  duration: int | None
+
+
+class Segment(BaseModel):
+  id: str
+  origin: str
+  destination: str
+  duration: int | None
+  dayChange: int | None
+  flightNumber: str | None
+  departure: datetime
+  arrival: datetime
+
+
+class LegDetail(BaseModel):
+    id: str | None
+    origin: DetailStop | None
+    destination: DetailStop | None
+    departure: datetime
+    arrival: datetime
+    segments: list[Segment] | None
+    layovers: list[Layover] | None
+    duration: int | None
+    stopCount: int | None
+
+
+class FlightDetail(BaseModel):
+    legs: list[LegDetail] | None
+
+
+class FlightDetailResponse(BaseModel):
+    status: bool | None
+    message: str | object | None
+    timestamp: int | None
+    data: list[FlightDetail] | None
+
+
+
 if __name__ == "__main__":
     with open("data/flight_response_example.json") as f:
         js = f.read()
 
-    fr = FlightResponse.parse_raw(js)
+    fr = FlightApiResponse.parse_raw(js)
 
     assert fr.message is not None
     assert fr.data is not None
     assert fr.data[0].legs is not None
     assert fr.data[0].legs[0].stops is not None
     assert len(fr.data[0].legs[0].stops) > 0
+
 
     print("Bueno ✊🍆💦")
