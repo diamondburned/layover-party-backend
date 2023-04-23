@@ -135,8 +135,8 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
 @app.get("/api/flight_details") 
 def get_flight_details(
         itineraryId: str = Query(description="The id of the trip"),
-        departure_date: str = Query(description="date of first flight in YYYYMMDD format"),
-        arrival_date: str = Query(description="date of last flight in YYYYMMDD format"),
+        date: str = Query(description="date of first flight in YYYYMMDD format"),
+        return_date: str = Query(description="date of last flight in YYYYMMDD format"),
         origin: str = Query(description="3-letter airport code (IATA)"),
         dest: str = Query(description="3-letter airport code (IATA)"),
     ):
@@ -147,12 +147,12 @@ def get_flight_details(
                 {
                     "origin": origin,
                     "destination": dest,
-                    "date": departure_date,
+                    "date": date,
                 },
                 {
                     "origin": dest,
                     "destination": origin,
-                    "date": arrival_date,
+                    "date": return_date,
                 }
             ]
         ),
