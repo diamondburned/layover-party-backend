@@ -135,10 +135,11 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
 @app.get("/api/flight_details") 
 def get_flight_details(
         itineraryId: str = Query(description="The id of the trip"),
-        date: str = Query(description="date of flight in YYYYMMDD format"),
+        departure_date: str = Query(description="date of first flight in YYYYMMDD format"),
+        arrival_date: str = Query(description="date of last flight in YYYYMMDD format"),
         origin: str = Query(description="3-letter airport code (IATA)"),
         dest: str = Query(description="3-letter airport code (IATA)"),
-        ):
+    ):
     query_string = {
         "itineraryId": itineraryId,
         "legs": json.dumps(
@@ -146,12 +147,19 @@ def get_flight_details(
                 {
                     "origin": origin,
                     "destination": dest,
-                    "date": date,
+                    "date": departure_date,
+                },
+                {
+                    "origin": dest,
+                    "destination": origin,
+                    "date": arrival_date,
                 }
             ]
         ),
     }
+    print(query_string)
     res = request("GET", RAPID_API_URL + "/getFlightDetails", headers=RAPID_API_HEADERS, params=query_string)
+    print(res.text)
 
     return FlightDetailResponse.parse_raw(res.text)
 
