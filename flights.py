@@ -45,16 +45,18 @@ def calculate_distance(p1: tuple[float, float], p2: tuple[float, float]) -> floa
     return d
 
 
+def plane_speed(distance: float) -> float:
+    # obtained from linearly interpolating the data from two points:
+    # (722,  395) -- SGN to HAN
+    # (5445, 551) -- LAX to NRT
+    return 0.033029853906415 * distance + 371.15244547957
+
+
 def layover_score(leg: Leg) -> float:
     """
     Estimates a score that indicates how much layover we could get from the
     given leg.
     """
-
-    # Use a constant plane speed. This doesn't matter too much, since we can
-    # expect overseas flights to be long enough that we're flying at a high
-    # velocity. Also, this score is meant to be relative.
-    PLANE_SPEED = 900  # km/h
 
     flight_distance = 0
     stops = [
@@ -84,14 +86,9 @@ def layover_score(leg: Leg) -> float:
         )
 
     # Estimate just the time it takes to fly in-between airports.
-    estimated_flight_time = flight_distance / PLANE_SPEED
+    flight_time = flight_distance / plane_speed(flight_distance)  # hours
 
     # The API only gives us the total duration of the entire trip, which
     # includes layovers.
-    total_duration = (leg.arrival - leg.departure).total_seconds()
-    # We'll compare the total trip duration with just the flight time, and this
-    # will give us a layover score: the longer the layover, the bigger the
-    # difference is.
-    estimated_total_time = total_duration / PLANE_SPEED
-
-    return estimated_total_time - estimated_flight_time
+    total_duration = (leg.arrival - leg.departure).total_seconds() / 3600  # hours
+    return total_duration - flight_time

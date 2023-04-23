@@ -201,13 +201,13 @@ def get_flights(
 
             total_score = 0
             for leg in flight.legs:
-                leg.layover_score = flights.layover_score(leg)
-                total_score += leg.layover_score
-            flight.layover_score = total_score / len(flight.legs)
+                leg.layover_hours = flights.layover_score(leg)
+                total_score += leg.layover_hours
+            flight.layover_hours = total_score / len(flight.legs)
 
         parsed_res.data.sort(
             # Shut Pyright up.
-            key=lambda flight: cast(float, flight.layover_score),
+            key=lambda flight: cast(float, flight.layover_hours),
             reverse=True,
         )
 
