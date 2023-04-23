@@ -5,11 +5,21 @@ import os
 import base64
 import bcrypt
 import time
+import hashlib
 from typing import cast
 
 from dotenv import load_dotenv
 from requests import request
-from fastapi import FastAPI, Depends, HTTPException, Request, Query
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    Query,
+    UploadFile,
+)
+from mimetypes import MimeTypes
 from snowflake import SnowflakeGenerator
 from aiohttp import ClientSession
 
@@ -18,7 +28,7 @@ from db import db
 from deps import get_authorized_user
 from models import *
 from flights import remove_invalid_flights, calculate_layover_scores
-from layovers import set_popularity_for_flights, get_users_in_layover
+from layovers import set_popularity_for_flights
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
@@ -45,6 +55,7 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+mime = MimeTypes()
 httpclient = ClientSession()
 id_generator = SnowflakeGenerator(0)
 
@@ -356,9 +367,48 @@ def airports(
     return ListAirportsResponse(airports=airports)
 
 
-@app.get("/api/layovers/{iata_code}")
-def get_layovers_for_airport(
-    iata_code: str, 
-    user: AuthorizedUser = Depends(get_authorized_user)
-) -> list[UserResponse]:
-    return get_users_in_layover(user.id, iata_code)
+@app.get("/api/assets/{hash}/{filename}")
+def get_asset(hash: str, filename: str) -> Response:
+    cur = db.cursor()
+    res = cur.execute(
+        """
+        SELECT data FROM assets
+        WHERE hash = ? AND name = ?
+        """,
+        (hash, filename),
+    )
+
+    row = res.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    types = mime.guess_type(filename)[0]
+    contentType = types if types is not None else "application/octet-stream"
+
+    return Response(content=row[0], headers={"Content-Type": contentType})
+
+
+@app.post("/api/assets")
+async def upload_asset(
+    file: UploadFile,
+    user: AuthorizedUser = Depends(get_authorized_user),
+) -> AssetUploadResponse:
+    data = file.file.read()
+    name = file.filename
+    if name is None:
+        raise HTTPException(status_code=400, detail="No filename")
+
+    hasher = hashlib.sha256()
+    hasher.update(data)
+    hash = base64.urlsafe_b64encode(hasher.digest()).decode()
+
+    cur = db.cursor()
+    cur.execute(
+        """
+        INSERT OR IGNORE INTO assets (hash, name, user_id, data)
+        VALUES (?, ?, ?, ?)
+        """,
+        (hash, file.filename, user.id, data),
+    )
+    db.commit()
+    return AssetUploadResponse(path=f"/api/assets/{hash}/{file.filename}")

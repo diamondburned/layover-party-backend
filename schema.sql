@@ -27,3 +27,10 @@ CREATE TABLE IF NOT EXISTS layovers (
 
 CREATE UNIQUE INDEX IF NOT EXISTS layovers_unique_idx
 	ON layovers(user_id, iata_code, arrive, depart);
+
+CREATE TABLE IF NOT EXISTS assets (
+	hash TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	data BLOB NOT NULL
+);

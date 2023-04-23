@@ -194,6 +194,10 @@ class LayoversResponse(BaseModel):
     layovers: list[Layover]
 
 
+class AssetUploadResponse(BaseModel):
+    path: str
+
+
 if __name__ == "__main__":
     with open("data/flight_response_example.json") as f:
         js = f.read()
