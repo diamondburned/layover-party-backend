@@ -60,6 +60,20 @@ httpclient = ClientSession()
 id_generator = SnowflakeGenerator(0)
 
 
+def validate_iata(origin, dest):
+    if origin is None or dest is None:
+        raise HTTPException(status_code=400, detail="Invalid IATA code")
+
+    if len(origin) != 3 or len(dest) != 3:
+        raise HTTPException(status_code=400, detail="Invalid IATA code")
+
+    if get_airport_by_iata(origin) is None:
+        raise HTTPException(status_code=400, detail="Invalid origin airport")
+    
+    if get_airport_by_iata(dest) is None:
+        raise HTTPException(status_code=400, detail="Invalid destination airport")
+
+
 @app.get("/api/ping")
 def ping():
     return "Pong!!!"
@@ -147,6 +161,8 @@ async def get_flight_details(
     num_adults: int | None,
     dest: str,
 ) -> FlightDetailResponse:
+    validate_iata(origin, dest)
+
     res = await httpclient.get(
         RAPID_API_URL + "/getFlightDetails",
         headers=RAPID_API_HEADERS,
@@ -184,6 +200,11 @@ async def get_flights(
     # TODO: implement eviction for old cached flights
     resp: FlightApiResponse
     PAGE_SIZE = 5
+
+    validate_iata(origin, dest)
+    
+    if date <= return_date:
+        raise HTTPException(status_code=400, detail="Invalid dates")
 
     async def fetchSearch() -> str:
         res = await httpclient.get(
@@ -356,6 +377,9 @@ def get_layovers_for_airport(
     iata_code: str, 
     user: AuthorizedUser = Depends(get_authorized_user)
 ) -> list[UserResponse]:
+    if get_airport_by_iata(iata_code) is None:
+        raise HTTPException(status_code=404, detail="Airport not found")
+
     return get_users_in_layover(user.id, iata_code)
 
 
