@@ -18,11 +18,11 @@ from db import db
 from deps import get_authorized_user
 from models import *
 from flights import remove_invalid_flights, calculate_layover_scores
+from layovers import set_popularity_for_flights
 from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
 )
-from layovers import calculate_popularity
 
 load_dotenv()
 
@@ -260,7 +260,7 @@ async def get_flights(
     await asyncio.gather(*coros)
 
     details_pop = cast(list[FlightDetailResponse], details)
-    details_pop = calculate_popularity(details_pop)
+    details_pop = set_popularity_for_flights(details_pop)
 
     return details_pop
 

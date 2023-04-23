@@ -2,12 +2,15 @@ from models import Flight, FlightDetailResponse
 from db import db
 
 
-def calculate_popularity(
-    flights: list[FlightDetailResponse],
-) -> list[FlightDetailResponse]:
-    iatas = []
-    iata_flights: dict[str, list[FlightDetailResponse]] = {}
+def set_popularity_for_flights(flights: list[FlightDetailResponse]):
     for flight in flights:
+        assert flight.data is not None
+        flight.data.pop_score = 0
+
+    iatas = []
+    iata_flights = [[] for i in range(len(flights))]
+    for i in range(len(flights)):
+        flight = flights[i]
         if flight is None or flight.data is None or flight.data.legs is None:
             continue
 
@@ -17,33 +20,31 @@ def calculate_popularity(
 
             for layover in leg.layovers:
                 iatas.append(layover.destination.displayCode)
-                if iata_flights[layover.destination.displayCode] is None:
-                    iata_flights[layover.destination.displayCode] = [flight]
-
-                iata_flights[layover.destination.displayCode].append(flight)
+                iata_flights[i].append(layover.destination.displayCode)
 
     cur = db.cursor()
     res = cur.execute(
-        "SELECT iata_code, COUNT(*) from layovers WHERE iata_code in ? GROUP BY iata_code",
-        (iatas,),
+        f"""
+            SELECT iata_code, COUNT(*) FROM layovers
+            WHERE iata_code IN ( {', '.join(['?']*len(iatas))} )
+            GROUP BY iata_code
+        """,
+        iatas,
     )
-
-    for flight in flights:
-        assert flight.data is not None
-        flight.data.pop_score = 0
 
     rows = res.fetchall()
     if rows is None:
-        return flights
+        return
 
     # convert rows into a dict
     popularity = {}
     for row in rows:
         popularity[row[0]] = row[1]
 
-    for iata, flights in iata_flights.items():
-        for flight in flights:
-            assert flight.data is not None
-            flight.data.pop_score += popularity[iata]
+    for i in range(len(flights)):
+        flight = flights[i]
+        assert flight.data is not None
 
-    return flights
+        for iata in iata_flights[i]:
+            if iata in popularity:
+                flight.data.pop_score += popularity[iata]
