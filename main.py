@@ -251,9 +251,14 @@ async def get_flights(
         "return_date": return_date,
     }
 
-    if (search_data := httpcache.get(search_cache_key)) is None:
+    search: FlightApiResponse
+    if (search_data := httpcache.get(search_cache_key)) is not None:
+        search = FlightApiResponse.parse_raw(search_data)
+    else:
         search_data = await fetchSearch()
-        httpcache.set(search_cache_key, search_data)
+        search = FlightApiResponse.parse_raw(search_data)
+        if search.status:
+            httpcache.set(search_cache_key, search_data)
 
     search = FlightApiResponse.parse_raw(search_data)
     if search is None or search.data is None:
@@ -289,13 +294,15 @@ async def get_flights(
             num_adults=num_adults,
         )
 
-        httpcache.set(cacheKey, res.json())
+        if res.status:
+            httpcache.set(cacheKey, res.json())
+
         details[i] = res
 
     coros = [loop(i) for i in range(len(search.data))]
     await asyncio.gather(*coros)
 
-    details_pop = cast(list[FlightDetailResponse], details)
+    details_pop = [detail for detail in details if detail is not None]
     set_popularity_for_flights(details_pop)
 
     return details_pop
