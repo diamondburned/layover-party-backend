@@ -104,28 +104,28 @@ class FlightApiResponse(BaseModel):
 
 
 class DetailStop(BaseModel):
-  id: str
-  name: str
-  displayCode: str
-  city: str
+    id: str
+    name: str
+    displayCode: str
+    city: str
 
 
 class Layover(BaseModel):
-  segmentId: str
-  origin: DetailStop
-  destination: DetailStop
-  duration: int | None
+    segmentId: str
+    origin: DetailStop
+    destination: DetailStop
+    duration: int | None
 
 
 class Segment(BaseModel):
-  id: str
-  origin: str
-  destination: str
-  duration: int | None
-  dayChange: int | None
-  flightNumber: str | None
-  departure: datetime
-  arrival: datetime
+    id: str
+    origin: str
+    destination: str
+    duration: int | None
+    dayChange: int | None
+    flightNumber: str | None
+    departure: datetime
+    arrival: datetime
 
 
 class LegDetail(BaseModel):
@@ -151,7 +151,6 @@ class FlightDetailResponse(BaseModel):
     data: list[FlightDetail] | None
 
 
-
 if __name__ == "__main__":
     with open("data/flight_response_example.json") as f:
         js = f.read()
@@ -164,5 +163,16 @@ if __name__ == "__main__":
     assert fr.data[0].legs[0].stops is not None
     assert len(fr.data[0].legs[0].stops) > 0
 
+    with open("data/flight_detail_response_example.json") as f:
+        js = f.read()
+
+    fdr = FlightDetailResponse.parse_raw(js)
+
+    assert fdr.data is not None
+    assert fdr.data[0].legs is not None
+    assert fdr.data[0].legs[0].segments is not None
+    assert len(fdr.data[0].legs[0].segments) > 0
+    assert fdr.data[0].legs[0].layovers is not None
+    assert len(fdr.data[0].legs[0].layovers) > 0
 
     print("Bueno ✊🍆💦")

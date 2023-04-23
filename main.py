@@ -135,10 +135,10 @@ def get_flights(
     wait_time: int | None = Query(None, description="max wait time in minutes"),
     page: int = Query(1, description="page number"),
     # TODO: Round trip
-) -> FlightResponse:
+) -> FlightApiResponse:
     # TODO: implement eviction for old cached flights
     PAGE_SIZE = 50
-    resp: FlightResponse
+    resp: FlightApiResponse
 
     cur = db.cursor()
     res = cur.execute(
@@ -148,7 +148,7 @@ def get_flights(
 
     row = res.fetchone()
     if row is not None:
-        resp = FlightResponse.parse_raw(row[0])
+        resp = FlightApiResponse.parse_raw(row[0])
     else:
         host = "skyscanner50.p.rapidapi.com"
         url = "https://" + host + "/api/v1/searchFlightsMultiStops"
@@ -177,7 +177,7 @@ def get_flights(
 
         res = request("GET", url, headers=headers, params=query_string)
 
-        parsed_res = FlightResponse.parse_raw(res.text)
+        parsed_res = FlightApiResponse.parse_raw(res.text)
         if parsed_res is None or parsed_res.data is None:
             return parsed_res
 
