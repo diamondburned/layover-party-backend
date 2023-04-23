@@ -134,35 +134,6 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
     return MeResponse(**row)
 
 
-@app.get("/api/flight_details")
-def get_flight_details(
-    itineraryId: str = Query(description="The id of the trip"),
-    date: str = Query(description="date of first flight in YYYYMMDD format"),
-    return_date: str
-    | None = Query(None, description="date of last flight in YYYYMMDD format"),
-    origin: str = Query(description="3-letter airport code (IATA)"),
-    num_adults: int | None = Query(1, description="number of adults"),
-    dest: str = Query(description="3-letter airport code (IATA)"),
-):
-    query_string = {
-        "itineraryId": itineraryId,
-        "legs": json.dumps(
-            [
-                {"origin": origin, "destination": dest, "date": date},
-                {"origin": dest, "destination": origin, "date": return_date},
-            ]
-        ),
-        "adults": num_adults,
-        "currency": "USD",
-        "countryCode": "US",
-        "market": "en-US",
-    }
-    url = RAPID_API_URL + "/getFlightDetails"
-    res = request("GET", url, headers=RAPID_API_HEADERS, params=query_string)
-
-    return FlightDetailResponse.parse_raw(res.text)
-
-
 @app.get("/api/flights")
 async def get_flights(
     origin: str = Query(description="3-letter airport code (IATA)"),
