@@ -1,3 +1,4 @@
+from datetime import timedelta, date as Date
 import json
 import asyncio
 import os
@@ -21,6 +22,7 @@ from airports import (
     find_by_name as find_airports_by_name,
     find_by_coords as find_airports_by_coords,
 )
+from layovers import calculate_popularity
 
 load_dotenv()
 
@@ -161,9 +163,8 @@ async def get_flights(
     origin: str = Query(description="3-letter airport code (IATA)"),
     dest: str = Query(description="3-letter airport code (IATA)"),
     date: str = Query(description="date of first flight in YYYY-MM-DD format"),
-    return_date: str
-    | None = Query(
-        None, description="date of the returning flight in YYYY-MM-DD format"
+    return_date: str = Query(
+        description="date of the returning flight in YYYY-MM-DD format"
     ),
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in milliseconds"),
@@ -258,7 +259,10 @@ async def get_flights(
     coros = [loop(i) for i in range(len(search.data))]
     await asyncio.gather(*coros)
 
-    return cast(list[FlightDetailResponse], details)
+    details_pop = cast(list[FlightDetailResponse], details)
+    details_pop = calculate_popularity(details_pop)
+
+    return details_pop
 
 
 @app.get("/api/airports")
