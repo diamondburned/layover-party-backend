@@ -3,6 +3,8 @@ from datetime import date as Date
 from models import Flight, FlightDetailResponse, LayoverDb, UserResponse
 from db import db
 
+MIN_DIFF = 30
+
 
 def set_popularity_for_flights(flights: list[FlightDetailResponse]):
     for flight in flights:
@@ -94,10 +96,16 @@ def get_users_in_layover(user_id: str, iata_code: str):
 
     for user in users:
         # if other departs after you arrive
-        if times[user.id][1] > curr_user.arrive and times[user.id][1] - curr_user.arrive >= 30:
+        if (
+            times[user.id][1] > curr_user.arrive
+            and times[user.id][1] - curr_user.arrive >= MIN_DIFF
+        ):
             matching.append(user)
         # if other arrives before you depart
-        elif times[user.id][0] < curr_user.depart and curr_user.depart - times[user.id][0] >= 30:
+        elif (
+            times[user.id][0] < curr_user.depart
+            and curr_user.depart - times[user.id][0] >= MIN_DIFF
+        ):
             matching.append(user)
 
     return matching

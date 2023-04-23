@@ -69,7 +69,7 @@ def validate_iata(origin, dest):
 
     if get_airport_by_iata(origin) is None:
         raise HTTPException(status_code=400, detail="Invalid origin airport")
-    
+
     if get_airport_by_iata(dest) is None:
         raise HTTPException(status_code=400, detail="Invalid destination airport")
 
@@ -114,10 +114,14 @@ def login(request: LoginRequest) -> LoginResponse:
 
 @app.post("/api/register", status_code=204)
 def register(request: RegisterRequest):
+    cur = db.cursor()
+    cur.execute("SELECT id FROM users WHERE email = ?", (request.email,))
+    if cur.fetchone() is not None:
+        raise HTTPException(status_code=409, detail="Email already in use")
+
     id = str(next(id_generator))
     passhash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
 
-    cur = db.cursor()
     cur.execute(
         "INSERT INTO users (id, email, first_name, passhash) VALUES (?, ?, ?, ?)",
         (id, request.email, request.first_name, passhash),
@@ -202,7 +206,7 @@ async def get_flights(
     PAGE_SIZE = 5
 
     validate_iata(origin, dest)
-    
+
     if date <= return_date:
         raise HTTPException(status_code=400, detail="Invalid dates")
 
@@ -374,8 +378,7 @@ def remove_layover(
 
 @app.get("/api/layovers/{iata_code}")
 def get_layovers_for_airport(
-    iata_code: str, 
-    user: AuthorizedUser = Depends(get_authorized_user)
+    iata_code: str, user: AuthorizedUser = Depends(get_authorized_user)
 ) -> list[UserResponse]:
     if get_airport_by_iata(iata_code) is None:
         raise HTTPException(status_code=404, detail="Airport not found")
