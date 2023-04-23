@@ -94,7 +94,7 @@ def register(request: RegisterRequest):
 
 
 @app.get("/api/me")
-def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
+def me(user: AuthorizedUser = Depends(get_authorized_user)) -> UserResponse:
     cur = db.cursor()
     res = cur.execute(
         "SELECT id, email, first_name, profile_picture FROM users WHERE id = ?",
@@ -104,7 +104,21 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> MeResponse:
     if row is None:
         raise HTTPException(status_code=500)
 
-    return MeResponse(**row)
+    return UserResponse(**row)
+
+@app.get("/api/user")
+def me(id: str) -> UserResponse:
+    cur = db.cursor()
+    res = cur.execute(
+        "SELECT id, email, first_name, profile_picture FROM users WHERE id = ?",
+        (id,),
+    )
+    row = res.fetchone()
+    print(row)
+    if row is None:
+        raise HTTPException(status_code=404)
+
+    return UserResponse(**row)
 
 
 def get_flight_details(
