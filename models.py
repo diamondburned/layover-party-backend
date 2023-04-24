@@ -33,7 +33,6 @@ class UserResponse(BaseModel):
     email: str
     first_name: str
     profile_picture: str | None
-    phone_number: str | None
 
 
 class MeUpdate(BaseModel):
@@ -173,8 +172,8 @@ class FlightDetail(BaseModel):
 
 class LayoverDb(BaseModel):
     user_id: str
-    arrive: int
-    depart: int
+    arrive: datetime
+    depart: datetime
     iata_code: str
 
 

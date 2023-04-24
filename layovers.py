@@ -1,9 +1,9 @@
-from datetime import date as Date
+from datetime import date as Date, datetime, timedelta
 
 from models import Flight, FlightDetailResponse, LayoverDb, UserResponse
 from db import db
 
-MIN_DIFF = 30
+MIN_DIFF = timedelta(minutes=30)
 
 
 def set_popularity_for_flights(flights: list[FlightDetailResponse]):
@@ -83,7 +83,8 @@ def get_users_in_layover(user_id: str, iata_code: str):
                 users.email,
                 users.first_name,
                 users.profile_picture,
-                users.phone_number
+                arrive,
+                depart
             FROM layovers
             JOIN users ON layovers.user_id = users.id
             WHERE iata_code = ? AND user_id != ?
@@ -101,7 +102,10 @@ def get_users_in_layover(user_id: str, iata_code: str):
 
     times = {}
     for row in rows:
-        times[row[2]] = (row[0], row[1])
+        times[row[0]] = (
+            datetime.fromisoformat(row[4]),
+            datetime.fromisoformat(row[5]),
+        )
 
     matching = []
 
