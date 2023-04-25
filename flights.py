@@ -1,21 +1,27 @@
+import os
 import math
+import json
+import tempfile
+from typing import cast
 
+from fastapi import HTTPException
+from pyrate_limiter import RequestRate, Limiter, Duration, SQLiteBucket
+
+import limiter
+import httputil
 import airports
 from models import *
 
-# function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
-#   var R = 6371; // Radius of the earth in km
-#   var dLat = deg2rad(lat2-lat1);  // deg2rad below
-#   var dLon = deg2rad(lon2-lon1);
-#   var a =
-#     Math.sin(dLat/2) * Math.sin(dLat/2) +
-#     Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-#     Math.sin(dLon/2) * Math.sin(dLon/2)
-#     ;
-#   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-#   var d = R * c; // Distance in km
-#   return d;
-# }
+
+RAPID_API_HOST = "skyscanner50.p.rapidapi.com"
+RAPID_API_URL = "https://" + RAPID_API_HOST + "/api/v1"
+RAPID_API_HEADERS = {
+    "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
+    "X-RapidAPI-Host": RAPID_API_HOST,
+}
+
+MAX_WAIT = 5000
+MIN_WAIT = 500
 
 
 def deg2rad(deg: float) -> float:
@@ -79,6 +85,8 @@ def layover_score(leg: Leg) -> float:
 
         stop1_airport = airports.get_by_iata(stop1.display_code)
         stop2_airport = airports.get_by_iata(stop2.display_code)
+        assert stop1_airport is not None
+        assert stop2_airport is not None
 
         flight_distance += calculate_distance(
             (stop1_airport.lat, stop1_airport.long),
@@ -128,3 +136,99 @@ def calculate_layover_scores(flights: list[Flight]) -> list[Flight]:
         flight.layover_hours = total_score / len(flight.legs)
 
     return flights
+
+
+# 5000/1mo
+rapid_api_limiter = limiter.new(RequestRate(5000, Duration.MONTH))
+
+fetch_flights_limiter = limiter.new(RequestRate(10, Duration.SECOND))
+fetch_flights_user_limiter = limiter.new(RequestRate(5, 30 * Duration.SECOND))
+
+fetch_details_limiter = limiter.new(RequestRate(4, Duration.SECOND))
+fetch_details_user_limiter = limiter.new(RequestRate(2, 30 * Duration.SECOND))
+
+
+@rapid_api_limiter.ratelimit()
+async def fetch_flight_details(
+    itineraryId: str,
+    origin: str,
+    dest: str,
+    date: str,
+    return_date: str | None,
+    num_adults: int | None,
+    user_id: str,  # used for user-specific rate limiting
+) -> FlightDetailResponse:
+    await limiter.wait(
+        lambda: rapid_api_limiter.ratelimit(),
+        lambda: fetch_details_limiter.ratelimit(delay=True),
+        lambda: fetch_details_user_limiter.ratelimit(user_id, delay=True),
+    )
+
+    res = await httputil.client.get(
+        RAPID_API_URL + "/getFlightDetails",
+        headers=RAPID_API_HEADERS,
+        params={
+            "itineraryId": itineraryId,
+            "legs": json.dumps(
+                [
+                    {"origin": origin, "destination": dest, "date": date},
+                    {"origin": dest, "destination": origin, "date": return_date},
+                ]
+            ),
+            "adults": num_adults,
+            "currency": "USD",
+            "countryCode": "US",
+            "market": "en-US",
+        },
+    )
+
+    data = await res.text()
+    return FlightDetailResponse.parse_raw(data)
+
+
+@rapid_api_limiter.ratelimit()
+async def fetch_flights(
+    origin: str,
+    dest: str,
+    date: str,
+    return_date: str | None,
+    num_adults: int | None,
+    wait_time: int | None,
+    user_id: str,  # used for user-specific rate limiting
+) -> FlightApiResponse:
+    await limiter.wait(
+        lambda: rapid_api_limiter.ratelimit(),
+        lambda: fetch_flights_limiter.ratelimit(delay=True),
+        lambda: fetch_flights_user_limiter.ratelimit(user_id, delay=True),
+    )
+
+    res = await httputil.client.get(
+        RAPID_API_URL + "/searchFlights",
+        headers=RAPID_API_HEADERS,
+        params={
+            "origin": origin,
+            "destination": dest,
+            "date": date,
+            "returnDate": return_date,
+            "waitTime": min(wait_time, MAX_WAIT) if wait_time is not None else MIN_WAIT,
+            "adults": num_adults,
+            "currency": "USD",
+            "countryCode": "US",
+            "market": "en-US",
+        },
+    )
+
+    data = FlightApiResponse.parse_raw(await res.text())
+    if data is None or data.data is None:
+        raise HTTPException(status_code=404, detail="No flights found")
+
+    data.data = remove_invalid_flights(data.data)
+    data.data = calculate_layover_scores(data.data)
+
+    data.data.sort(
+        # Shut Pyright up.
+        key=lambda flight: cast(float, flight.layover_hours),
+        reverse=True,
+    )
+
+    return data

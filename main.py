@@ -24,11 +24,18 @@ from mimetypes import MimeTypes
 from snowflake import SnowflakeGenerator
 from aiohttp import ClientSession
 
-import httpcache
+import httputil
+import limiter
 from db import db
 from deps import get_authorized_user
 from models import *
-from flights import remove_invalid_flights, calculate_layover_scores
+from flights import (
+    fetch_flight_details,
+    remove_invalid_flights,
+    calculate_layover_scores,
+    fetch_flights,
+    fetch_flight_details,
+)
 from layovers import set_popularity_for_flights, get_users_in_layover
 from airports import (
     find_by_name as find_airports_by_name,
@@ -38,17 +45,9 @@ from airports import (
 
 load_dotenv()
 
-MAX_WAIT = 5000
-MIN_WAIT = 500
-
-RAPID_API_HOST = "skyscanner50.p.rapidapi.com"
-RAPID_API_URL = "https://" + RAPID_API_HOST + "/api/v1"
-RAPID_API_HEADERS = {
-    "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
-    "X-RapidAPI-Host": RAPID_API_HOST,
-}
 
 TOKEN_EXPIRY = 604800  # 1 week
+MAX_UPLOAD_SIZE = 1024 * 1024 * 1  # 1 MB
 
 
 app = FastAPI(
@@ -57,8 +56,11 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 mime = MimeTypes()
-httpclient = ClientSession()
 id_generator = SnowflakeGenerator(0)
+
+login_user_limit = limiter.new(limiter.Rate(30, limiter.Duration.MINUTE))
+register_limit = limiter.new(limiter.Rate(10, limiter.Duration.MINUTE))
+upload_limit = limiter.new(limiter.Rate(5, limiter.Duration.MINUTE))
 
 
 def validate_iata(origin, dest):
@@ -81,7 +83,9 @@ def ping():
 
 
 @app.post("/api/login")
-def login(request: LoginRequest) -> LoginResponse:
+async def login(request: LoginRequest) -> LoginResponse:
+    await limiter.wait(lambda: login_user_limit.ratelimit(request.email, delay=True))
+
     cur = db.cursor()
     res = cur.execute(
         "SELECT id, passhash, first_name, profile_picture FROM users WHERE email = ?",
@@ -90,10 +94,10 @@ def login(request: LoginRequest) -> LoginResponse:
 
     row = res.fetchone()
     if row is None:
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not bcrypt.checkpw(request.password.encode(), row[1].encode()):
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = base64.b64encode(os.urandom(32)).decode()
     expire = int(time.time()) + TOKEN_EXPIRY
@@ -114,7 +118,9 @@ def login(request: LoginRequest) -> LoginResponse:
 
 
 @app.post("/api/register", status_code=204)
-def register(request: RegisterRequest):
+async def register(request: RegisterRequest):
+    await limiter.wait(lambda: register_limit.ratelimit(delay=True))
+
     cur = db.cursor()
     cur.execute("SELECT id FROM users WHERE email = ?", (request.email,))
     if cur.fetchone() is not None:
@@ -197,38 +203,6 @@ def get_user(id: str) -> UserResponse:
     return UserResponse(**row)
 
 
-async def get_flight_details(
-    itineraryId: str,
-    date: str,
-    return_date: str | None,
-    origin: str,
-    num_adults: int | None,
-    dest: str,
-) -> FlightDetailResponse:
-    validate_iata(origin, dest)
-
-    res = await httpclient.get(
-        RAPID_API_URL + "/getFlightDetails",
-        headers=RAPID_API_HEADERS,
-        params={
-            "itineraryId": itineraryId,
-            "legs": json.dumps(
-                [
-                    {"origin": origin, "destination": dest, "date": date},
-                    {"origin": dest, "destination": origin, "date": return_date},
-                ]
-            ),
-            "adults": num_adults,
-            "currency": "USD",
-            "countryCode": "US",
-            "market": "en-US",
-        },
-    )
-
-    data = await res.text()
-    return FlightDetailResponse.parse_raw(data)
-
-
 @app.get("/api/flights")
 async def get_flights(
     origin: str = Query(description="3-letter airport code (IATA)"),
@@ -240,49 +214,16 @@ async def get_flights(
     num_adults: int | None = Query(1, description="number of adults"),
     wait_time: int | None = Query(None, description="max wait time in milliseconds"),
     page: int = Query(1, description="page number"),
+    user=Depends(get_authorized_user),
 ) -> list[FlightDetailResponse]:
-    # TODO: implement eviction for old cached flights
-    resp: FlightApiResponse
     PAGE_SIZE = 5
+
+    resp: FlightApiResponse
 
     validate_iata(origin, dest)
 
     if date > return_date:
         raise HTTPException(status_code=400, detail="Invalid dates")
-
-    async def fetchSearch() -> str:
-        res = await httpclient.get(
-            RAPID_API_URL + "/searchFlights",
-            headers=RAPID_API_HEADERS,
-            params={
-                "origin": origin,
-                "destination": dest,
-                "date": date,
-                "returnDate": return_date,
-                "waitTime": min(wait_time, MAX_WAIT)
-                if wait_time is not None
-                else MIN_WAIT,
-                "adults": num_adults,
-                "currency": "USD",
-                "countryCode": "US",
-                "market": "en-US",
-            },
-        )
-
-        data = FlightApiResponse.parse_raw(await res.text())
-        if data is None or data.data is None:
-            raise HTTPException(status_code=404, detail="No flights found")
-
-        data.data = remove_invalid_flights(data.data)
-        data.data = calculate_layover_scores(data.data)
-
-        data.data.sort(
-            # Shut Pyright up.
-            key=lambda flight: cast(float, flight.layover_hours),
-            reverse=True,
-        )
-
-        return data.json()
 
     search_cache_key = {
         "origin": origin,
@@ -292,15 +233,28 @@ async def get_flights(
     }
 
     search: FlightApiResponse
-    if (search_data := httpcache.get(search_cache_key)) is not None:
+    # TODO: implement eviction for old cached flights
+    if (search_data := httputil.get_cached(search_cache_key)) is not None:
         search = FlightApiResponse.parse_raw(search_data)
     else:
-        search_data = await fetchSearch()
-        search = FlightApiResponse.parse_raw(search_data)
-        if search.status:
-            httpcache.set(search_cache_key, search_data)
+        try:
+            search = await fetch_flights(
+                origin,
+                dest,
+                date,
+                return_date,
+                num_adults,
+                wait_time,
+                user.id,
+            )
+        except limiter.LimitedException as e:
+            limiter.raise_http(e)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"external API error: {e}")
 
-    search = FlightApiResponse.parse_raw(search_data)
+        if search.status:
+            httputil.set_cache(search_cache_key, search.json())
+
     if search is None or search.data is None:
         raise HTTPException(status_code=404, detail="No flights found")
 
@@ -321,21 +275,26 @@ async def get_flights(
             "return_date": return_date,
         }
 
-        if (cache := httpcache.get(cacheKey)) is not None:
+        if (cache := httputil.get_cached(cacheKey)) is not None:
             details[i] = FlightDetailResponse.parse_raw(cache)
             return
 
-        res = await get_flight_details(
-            itineraryId=search.data[i].id,
-            origin=origin,
-            dest=dest,
-            date=date,
-            return_date=return_date,
-            num_adults=num_adults,
-        )
+        try:
+            res = await fetch_flight_details(
+                itineraryId=search.data[i].id,
+                origin=origin,
+                dest=dest,
+                date=date,
+                return_date=return_date,
+                num_adults=num_adults,
+            )
+        except limiter.LimitedException as e:
+            limiter.raise_http(e)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"external API error: {e}")
 
         if res.status:
-            httpcache.set(cacheKey, res.json())
+            httputil.set_cache(cacheKey, res.json())
 
         details[i] = res
 
@@ -409,10 +368,7 @@ def add_layover(
             detail=str(e),
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=500, detail=f"external API error: {e}")
 
 
 @app.delete("/api/layovers", status_code=204)
@@ -486,6 +442,20 @@ async def upload_asset(
     file: UploadFile,
     user: AuthorizedUser = Depends(get_authorized_user),
 ) -> AssetUploadResponse:
+    try:
+        upload_limit.try_acquire(user.id)
+    except limiter.LimitedException as e:
+        limiter.raise_http(e)
+
+    if file.size is None:
+        raise HTTPException(status_code=400, detail="file size is unknown")
+
+    if file.size > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size must be less than {MAX_UPLOAD_SIZE} bytes",
+        )
+
     data = file.file.read()
     name = file.filename
     if name is None:

@@ -5,7 +5,10 @@ import sqlite3
 import tempfile
 from typing import Any, Callable
 
-MAX_AGE = 60 * 60 * 24 * 1  # 1 day
+from aiohttp import ClientSession
+
+
+MAX_AGE = 60 * 60 * 24 * 14  # 14 days or 2 weeks
 
 WORKING_DIR = os.path.join(tempfile.gettempdir(), "layover-party")
 HTTPCACHE_DB = os.path.join(WORKING_DIR, "httpcache.db")
@@ -27,8 +30,10 @@ db.executescript(
 )
 db.commit()
 
+client = ClientSession()
 
-def get(key: dict) -> str | None:
+
+def get_cached(key: dict) -> str | None:
     keystr = json.dumps(key)
 
     res = db.execute(
@@ -39,21 +44,22 @@ def get(key: dict) -> str | None:
         return row[0]
 
 
-def set(key: dict, response: str, max_age: int = MAX_AGE) -> None:
-    keystr = json.dumps(key)
+def __clean_cache(cur=db.cursor()) -> None:
+    cur.execute("DELETE FROM cache WHERE expiry < ?", (time.time(),))
 
-    db.execute(
-        "REPLACE INTO cache (key, expiry, response) VALUES (?, ?, ?)",
-        (keystr, time.time() + max_age, response),
-    )
+
+def clean_cache() -> None:
+    __clean_cache(db.cursor())
     db.commit()
 
 
-def use(key: dict, getter: Callable[[], str], maxAge=MAX_AGE) -> str:
-    if (cached := get(key)) is not None:
-        return cached
+def set_cache(key: dict, response: str, max_age: int = MAX_AGE) -> None:
+    keystr = json.dumps(key)
 
-    response = getter()
-    set(key, response, maxAge)
-
-    return response
+    cur = db.cursor()
+    cur.execute(
+        "REPLACE INTO cache (key, expiry, response) VALUES (?, ?, ?)",
+        (keystr, time.time() + max_age, response),
+    )
+    __clean_cache(cur)
+    db.commit()
