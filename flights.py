@@ -145,7 +145,7 @@ fetch_flights_limiter = limiter.new(RequestRate(10, Duration.SECOND))
 fetch_flights_user_limiter = limiter.new(RequestRate(5, 30 * Duration.SECOND))
 
 fetch_details_limiter = limiter.new(RequestRate(4, Duration.SECOND))
-fetch_details_user_limiter = limiter.new(RequestRate(2, 30 * Duration.SECOND))
+fetch_details_user_limiter = limiter.new(RequestRate(10, 30 * Duration.SECOND))
 
 
 @rapid_api_limiter.ratelimit()
