@@ -287,6 +287,7 @@ async def get_flights(
                 date=date,
                 return_date=return_date,
                 num_adults=num_adults,
+                user_id=user.id,
             )
         except limiter.LimitedException as e:
             limiter.raise_http(e)
