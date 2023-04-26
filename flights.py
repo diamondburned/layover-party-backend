@@ -3,6 +3,7 @@ import math
 import json
 import tempfile
 from typing import cast
+from datetime import date
 
 from fastapi import HTTPException
 from pyrate_limiter import RequestRate, Limiter, Duration, SQLiteBucket
@@ -154,9 +155,9 @@ async def fetch_flight_details(
     itineraryId: str,
     origin: str,
     dest: str,
-    date: str,
-    return_date: str | None,
-    num_adults: int | None,
+    date: date,
+    return_date: date,
+    num_adults: int,
     user_id: str,  # used for user-specific rate limiting
 ) -> FlightDetailResponse:
     await limiter.wait(
@@ -204,8 +205,8 @@ async def fetch_flight_details(
 async def fetch_flights(
     origin: str,
     dest: str,
-    date: str,
-    return_date: str,
+    date: date,
+    return_date: date,
     num_adults: int,
     wait_time: int,
     user_id: str,  # used for user-specific rate limiting

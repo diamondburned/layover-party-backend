@@ -1,5 +1,4 @@
-from datetime import timedelta, date as Date
-import json
+from datetime import date
 import asyncio
 import os
 import base64
@@ -10,19 +9,16 @@ from typing import cast, Annotated
 from sqlite3 import IntegrityError
 
 from dotenv import load_dotenv
-from requests import request
 from fastapi import (
     FastAPI,
     Depends,
     HTTPException,
-    Request,
     Response,
     Query,
     UploadFile,
 )
 from mimetypes import MimeTypes
 from snowflake import SnowflakeGenerator
-from aiohttp import ClientSession
 
 import httputil
 import limiter
@@ -31,8 +27,6 @@ from deps import get_authorized_user
 from models import *
 from flights import (
     fetch_flight_details,
-    remove_invalid_flights,
-    calculate_layover_scores,
     fetch_flights,
     fetch_flight_details,
 )
@@ -137,9 +131,9 @@ async def register(request: RegisterRequest):
             (id, request.email, request.first_name, passhash),
         )
         db.commit()
-    except IntegrityError as e:
+    except IntegrityError:
         raise HTTPException(status_code=400, detail="Failed to create user")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to create user")
 
 
@@ -211,10 +205,10 @@ async def get_flights(
     origin: Annotated[str, Query(description="3-letter airport code (IATA)")],
     dest: Annotated[str, Query(description="3-letter airport code (IATA)")],
     date: Annotated[
-        str, Query(description="date of first flight in YYYY-MM-DD format")
+        date, Query(description="date of first flight in YYYY-MM-DD format")
     ],
     return_date: Annotated[
-        str, Query(description="date of the returning flight in YYYY-MM-DD format")
+        date, Query(description="date of the returning flight in YYYY-MM-DD format")
     ],
     num_adults: Annotated[int, Query(description="number of adults")] = 1,
     wait_time: Annotated[
@@ -223,8 +217,6 @@ async def get_flights(
     page: Annotated[int, Query(description="page number", ge=1)] = 1,
 ) -> list[FlightDetailResponse]:
     PAGE_SIZE = 5
-
-    resp: FlightApiResponse
 
     validate_iata(origin, dest)
 
@@ -244,7 +236,6 @@ async def get_flights(
         search = FlightApiResponse.parse_raw(search_data)
     else:
         try:
-            print(origin, dest, date, return_date, num_adults, wait_time, user.id)
             search = await fetch_flights(
                 origin,
                 dest,
