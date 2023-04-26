@@ -250,7 +250,7 @@ async def get_flights(
         except limiter.LimitedException as e:
             limiter.raise_http(e)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"external API error: {e}")
+            httputil.raise_external(e)
 
         if search.status:
             httputil.set_cache(search_cache_key, search.json())
@@ -291,7 +291,7 @@ async def get_flights(
         except limiter.LimitedException as e:
             limiter.raise_http(e)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"external API error: {e}")
+            httputil.raise_external(e)
 
         if res.status:
             httputil.set_cache(cacheKey, res.json())
@@ -368,7 +368,7 @@ def add_layover(
             detail=str(e),
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"external API error: {e}")
+        httputil.raise_external(e)
 
 
 @app.delete("/api/layovers", status_code=204)

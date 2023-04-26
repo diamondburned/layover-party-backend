@@ -3,9 +3,11 @@ import time
 import json
 import sqlite3
 import tempfile
+import traceback
 from typing import Any, Callable
 
 from aiohttp import ClientSession
+from fastapi import HTTPException
 
 
 MAX_AGE = 60 * 60 * 24 * 14  # 14 days or 2 weeks
@@ -63,3 +65,16 @@ def set_cache(key: dict, response: str, max_age: int = MAX_AGE) -> None:
     )
     __clean_cache(cur)
     db.commit()
+
+
+def raise_external(e: Exception):
+    trace = traceback.format_exc()
+    print(f"-------- begin external API error --------")
+    print(f"error: {e}")
+    print(f"trace:\n{trace}")
+    print(f"--------- end external API error ---------")
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"external API error: {e} (check server console)",
+    )
