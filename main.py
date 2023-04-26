@@ -6,7 +6,7 @@ import base64
 import bcrypt
 import time
 import hashlib
-from typing import cast
+from typing import cast, Annotated
 from sqlite3 import IntegrityError
 
 from dotenv import load_dotenv
@@ -55,6 +55,8 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+
+
 mime = MimeTypes()
 id_generator = SnowflakeGenerator(0)
 
@@ -142,7 +144,7 @@ async def register(request: RegisterRequest):
 
 
 @app.get("/api/me")
-def me(user: AuthorizedUser = Depends(get_authorized_user)) -> UserResponse:
+def me(user: Annotated[AuthorizedUser, Depends(get_authorized_user)]) -> UserResponse:
     cur = db.cursor()
 
     res = cur.execute(
@@ -159,8 +161,8 @@ def me(user: AuthorizedUser = Depends(get_authorized_user)) -> UserResponse:
 
 @app.patch("/api/me")
 def update_me(
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
     update: MeUpdate,
-    user: AuthorizedUser = Depends(get_authorized_user),
 ) -> UserResponse:
     cur = db.cursor()
 
@@ -205,16 +207,20 @@ def get_user(id: str) -> UserResponse:
 
 @app.get("/api/flights")
 async def get_flights(
-    origin: str = Query(description="3-letter airport code (IATA)"),
-    dest: str = Query(description="3-letter airport code (IATA)"),
-    date: str = Query(description="date of first flight in YYYY-MM-DD format"),
-    return_date: str = Query(
-        description="date of the returning flight in YYYY-MM-DD format"
-    ),
-    num_adults: int | None = Query(1, description="number of adults"),
-    wait_time: int | None = Query(None, description="max wait time in milliseconds"),
-    page: int = Query(1, description="page number"),
-    user=Depends(get_authorized_user),
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
+    origin: Annotated[str, Query(description="3-letter airport code (IATA)")],
+    dest: Annotated[str, Query(description="3-letter airport code (IATA)")],
+    date: Annotated[
+        str, Query(description="date of first flight in YYYY-MM-DD format")
+    ],
+    return_date: Annotated[
+        str, Query(description="date of the returning flight in YYYY-MM-DD format")
+    ],
+    num_adults: Annotated[int, Query(description="number of adults")] = 1,
+    wait_time: Annotated[
+        int, Query(description="max wait time in milliseconds", ge=0, le=5000)
+    ] = 500,
+    page: Annotated[int, Query(description="page number", ge=1)] = 1,
 ) -> list[FlightDetailResponse]:
     PAGE_SIZE = 5
 
@@ -238,6 +244,7 @@ async def get_flights(
         search = FlightApiResponse.parse_raw(search_data)
     else:
         try:
+            print(origin, dest, date, return_date, num_adults, wait_time, user.id)
             search = await fetch_flights(
                 origin,
                 dest,
@@ -314,7 +321,7 @@ async def get_flights(
 
 @app.get("/api/layovers")
 def layovers(
-    user: AuthorizedUser = Depends(get_authorized_user),
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
 ) -> LayoversResponse:
     """
     Get all of the current user's interested layover flights.
@@ -347,8 +354,8 @@ def layovers(
 
 @app.post("/api/layovers", status_code=204)
 def add_layover(
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
     body: AddOrRemoveLayoverRequest,
-    user: AuthorizedUser = Depends(get_authorized_user),
 ):
     """
     Mark a layover flight as interested. This contributes towards a popularity
@@ -380,8 +387,8 @@ def add_layover(
 
 @app.delete("/api/layovers", status_code=204)
 def remove_layover(
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
     body: AddOrRemoveLayoverRequest,
-    user: AuthorizedUser = Depends(get_authorized_user),
 ):
     """
     Unmark a layover flight as interested. This undoes add_layover.
@@ -399,7 +406,8 @@ def remove_layover(
 
 @app.get("/api/layovers/{iata_code}")
 def get_layovers_for_airport(
-    iata_code: str, user: AuthorizedUser = Depends(get_authorized_user)
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
+    iata_code: str,
 ) -> list[UserResponse]:
     if get_airport_by_iata(iata_code) is None:
         raise HTTPException(status_code=404, detail="Airport not found")
@@ -409,9 +417,11 @@ def get_layovers_for_airport(
 
 @app.get("/api/airports")
 def airports(
-    name: str = Query(None, description="airport name (must not have lat or long)"),
-    lat: float = Query(None, description="latitude (must also have long)"),
-    long: float = Query(None, description="longitude (must also have lat)"),
+    name: Annotated[
+        str | None, Query(description="airport name (must not have lat or long)")
+    ],
+    lat: Annotated[float | None, Query(description="latitude (must also have long)")],
+    long: Annotated[float | None, Query(description="longitude (must also have lat)")],
 ) -> ListAirportsResponse:
     if name:
         airports = find_airports_by_name(name)
@@ -446,8 +456,8 @@ def get_asset(hash: str, filename: str) -> Response:
 
 @app.post("/api/assets")
 async def upload_asset(
+    user: Annotated[AuthorizedUser, Depends(get_authorized_user)],
     file: UploadFile,
-    user: AuthorizedUser = Depends(get_authorized_user),
 ) -> AssetUploadResponse:
     try:
         upload_limit.try_acquire(user.id)

@@ -12,6 +12,10 @@ import httputil
 import airports
 from models import *
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 RAPID_API_HOST = "skyscanner50.p.rapidapi.com"
 RAPID_API_URL = "https://" + RAPID_API_HOST + "/api/v1"
@@ -19,9 +23,6 @@ RAPID_API_HEADERS = {
     "X-RapidAPI-Key": os.getenv("RAPID_API_KEY"),
     "X-RapidAPI-Host": RAPID_API_HOST,
 }
-
-MAX_WAIT = 5000
-MIN_WAIT = 500
 
 
 def deg2rad(deg: float) -> float:
@@ -204,9 +205,9 @@ async def fetch_flights(
     origin: str,
     dest: str,
     date: str,
-    return_date: str | None,
-    num_adults: int | None,
-    wait_time: int | None,
+    return_date: str,
+    num_adults: int,
+    wait_time: int,
     user_id: str,  # used for user-specific rate limiting
 ) -> FlightApiResponse:
     await limiter.wait(
@@ -215,6 +216,7 @@ async def fetch_flights(
         lambda: fetch_flights_user_limiter.ratelimit(user_id, delay=True),
     )
 
+    print(RAPID_API_HEADERS)
     res = await httputil.client.get(
         RAPID_API_URL + "/searchFlights",
         headers=RAPID_API_HEADERS,
@@ -223,7 +225,7 @@ async def fetch_flights(
             "destination": dest,
             "date": date,
             "returnDate": return_date,
-            "waitTime": min(wait_time, MAX_WAIT) if wait_time is not None else MIN_WAIT,
+            "waitTime": wait_time,
             "adults": num_adults,
             "currency": "USD",
             "countryCode": "US",
