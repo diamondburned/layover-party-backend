@@ -3,7 +3,7 @@ import math
 import json
 import tempfile
 from typing import cast
-from datetime import date
+from datetime import date as Date
 
 from fastapi import HTTPException
 from pyrate_limiter import RequestRate, Limiter, Duration, SQLiteBucket
@@ -155,8 +155,8 @@ async def fetch_flight_details(
     itineraryId: str,
     origin: str,
     dest: str,
-    date: date,
-    return_date: date,
+    date: Date,
+    return_date: Date,
     num_adults: int,
     user_id: str,  # used for user-specific rate limiting
 ) -> FlightDetailResponse:
@@ -173,8 +173,8 @@ async def fetch_flight_details(
             "itineraryId": itineraryId,
             "legs": json.dumps(
                 [
-                    {"origin": origin, "destination": dest, "date": date},
-                    {"origin": dest, "destination": origin, "date": return_date},
+                    {"origin": origin, "destination": dest, "date": str(date)},
+                    {"origin": dest, "destination": origin, "date": str(return_date)},
                 ]
             ),
             "adults": num_adults,
@@ -205,8 +205,8 @@ async def fetch_flight_details(
 async def fetch_flights(
     origin: str,
     dest: str,
-    date: date,
-    return_date: date,
+    date: Date,
+    return_date: Date,
     num_adults: int,
     wait_time: int,
     user_id: str,  # used for user-specific rate limiting
@@ -224,8 +224,8 @@ async def fetch_flights(
         params={
             "origin": origin,
             "destination": dest,
-            "date": date,
-            "returnDate": return_date,
+            "date": str(date),
+            "returnDate": str(return_date),
             "waitTime": wait_time,
             "adults": num_adults,
             "currency": "USD",

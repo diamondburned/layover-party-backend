@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date as Date
 import asyncio
 import os
 import base64
@@ -6,8 +6,8 @@ import bcrypt
 import time
 import hashlib
 from typing import cast, Annotated
-from sqlite3 import IntegrityError
 
+from sqlite3 import IntegrityError
 from dotenv import load_dotenv
 from fastapi import (
     FastAPI,
@@ -205,10 +205,10 @@ async def get_flights(
     origin: Annotated[str, Query(description="3-letter airport code (IATA)")],
     dest: Annotated[str, Query(description="3-letter airport code (IATA)")],
     date: Annotated[
-        date, Query(description="date of first flight in YYYY-MM-DD format")
+        Date, Query(description="date of first flight in YYYY-MM-DD format")
     ],
     return_date: Annotated[
-        date, Query(description="date of the returning flight in YYYY-MM-DD format")
+        Date, Query(description="date of the returning flight in YYYY-MM-DD format")
     ],
     num_adults: Annotated[int, Query(description="number of adults")] = 1,
     wait_time: Annotated[
@@ -226,8 +226,8 @@ async def get_flights(
     search_cache_key = {
         "origin": origin,
         "dest": dest,
-        "date": date,
-        "return_date": return_date,
+        "date": str(date),
+        "return_date": str(return_date),
     }
 
     search: FlightApiResponse
@@ -271,8 +271,8 @@ async def get_flights(
             "itineraryId": search.data[i].id,
             "origin": origin,
             "dest": dest,
-            "date": date,
-            "return_date": return_date,
+            "date": str(date),
+            "return_date": str(return_date),
         }
 
         if (cache := httputil.get_cached(cacheKey)) is not None:
