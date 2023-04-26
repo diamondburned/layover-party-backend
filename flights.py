@@ -182,8 +182,21 @@ async def fetch_flight_details(
         },
     )
 
-    data = await res.text()
-    return FlightDetailResponse.parse_raw(data)
+    text = await res.text()
+
+    try:
+        data = FlightDetailResponse.parse_raw(text)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to parse response: {e}"
+                if res.ok
+                else f"Server returned HTTP {res.status}"
+            ),
+        )
+
+    return data
 
 
 @rapid_api_limiter.ratelimit()
@@ -218,7 +231,18 @@ async def fetch_flights(
         },
     )
 
-    data = FlightApiResponse.parse_raw(await res.text())
+    try:
+        data = FlightApiResponse.parse_raw(await res.text())
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to parse response: {e}"
+                if res.ok
+                else f"Server returned HTTP {res.status}"
+            ),
+        )
+
     if data is None or data.data is None:
         raise HTTPException(status_code=404, detail="No flights found")
 
