@@ -247,6 +247,8 @@ async def get_flights(
                 wait_time,
                 user.id,
             )
+        except HTTPException as e:
+            raise e
         except limiter.LimitedException as e:
             limiter.raise_http(e)
         except Exception as e:
@@ -289,6 +291,8 @@ async def get_flights(
                 num_adults=num_adults,
                 user_id=user.id,
             )
+        except HTTPException as e:
+            raise e
         except limiter.LimitedException as e:
             limiter.raise_http(e)
         except Exception as e:
@@ -363,6 +367,8 @@ def add_layover(
             (body.iata, body.depart, body.arrive, user.id),
         )
         db.commit()
+    except HTTPException as e:
+        raise e
     except IntegrityError as e:
         raise HTTPException(
             status_code=400,
